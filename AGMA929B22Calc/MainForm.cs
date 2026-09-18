@@ -3,93 +3,30 @@ using AGMA929B22Calc.Models;
 
 namespace AGMA929B22Calc;
 
-public class MainForm : Form
+public partial class MainForm : Form
 {
-    private readonly PropertyGrid _propertyGrid = new();
-    private readonly TextBox _resultsBox = new();
-    private readonly Button _calculateButton = new();
-    private readonly Button _loadExampleButton = new();
-    private readonly Button _saveReportButton = new();
-    private readonly Label _statusLabel = new();
     private AgmaInputs _inputs = new();
 
     public MainForm()
     {
-        Text = "AGMA 929-B22 — Bevel Gear Top Land, Slot Width and Cutter Edge Radius Calculator";
-        Width = 1400;
-        Height = 900;
-        StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1000, 650);
-
-        var split = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterDistance = 460
-        };
-
-        // ---- Left panel: PropertyGrid + buttons
-        var leftPanel = new Panel { Dock = DockStyle.Fill };
-
-        var buttonPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 40,
-            FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(4)
-        };
-
-        _calculateButton.Text = "Calculate";
-        _calculateButton.Width = 110;
-        _calculateButton.Height = 30;
-        _calculateButton.Click += (_, _) => RunCalculation();
-
-        _loadExampleButton.Text = "Load AGMA Annex C Example";
-        _loadExampleButton.Width = 190;
-        _loadExampleButton.Height = 30;
-        _loadExampleButton.Click += (_, _) => LoadAnnexCExample();
-
-        _saveReportButton.Text = "Save Report...";
-        _saveReportButton.Width = 110;
-        _saveReportButton.Height = 30;
-        _saveReportButton.Click += (_, _) => SaveReport();
-
-        buttonPanel.Controls.Add(_calculateButton);
-        buttonPanel.Controls.Add(_loadExampleButton);
-        buttonPanel.Controls.Add(_saveReportButton);
-
-        _propertyGrid.Dock = DockStyle.Fill;
-        _propertyGrid.SelectedObject = _inputs;
-        _propertyGrid.PropertySort = PropertySort.Categorized;
-        _propertyGrid.ToolbarVisible = false;
-        _propertyGrid.HelpVisible = true;
-
-        leftPanel.Controls.Add(_propertyGrid);
-        leftPanel.Controls.Add(buttonPanel);
-        split.Panel1.Controls.Add(leftPanel);
-
-        // ---- Right panel: results text box + status
-        var rightPanel = new Panel { Dock = DockStyle.Fill };
-
-        _statusLabel.Dock = DockStyle.Top;
-        _statusLabel.Height = 26;
-        _statusLabel.Padding = new Padding(6, 4, 6, 4);
-        _statusLabel.ForeColor = Color.DarkRed;
-        _statusLabel.Text = "";
-
-        _resultsBox.Multiline = true;
-        _resultsBox.ScrollBars = ScrollBars.Both;
-        _resultsBox.Dock = DockStyle.Fill;
-        _resultsBox.WordWrap = false;
-        _resultsBox.Font = new Font(FontFamily.GenericMonospace, 9.5f);
-        _resultsBox.ReadOnly = true;
-
-        rightPanel.Controls.Add(_resultsBox);
-        rightPanel.Controls.Add(_statusLabel);
-        split.Panel2.Controls.Add(rightPanel);
-
-        Controls.Add(split);
+        InitializeComponent();
+        propertyGrid1.SelectedObject = _inputs;
+        exampleComboBox.SelectedIndex = 0;
     }
+
+    private void CalculateButton_Click(object sender, EventArgs e) => RunCalculation();
+
+    private void LoadExampleButton_Click(object sender, EventArgs e)
+    {
+        switch (exampleComboBox.SelectedIndex)
+        {
+            case 1: LoadAnnexDExample(); break;
+            case 2: LoadAnnexEExample(); break;
+            default: LoadAnnexCExample(); break;
+        }
+    }
+
+    private void SaveReportButton_Click(object sender, EventArgs e) => SaveReport();
 
     private void RunCalculation()
     {
@@ -98,24 +35,24 @@ public class MainForm : Form
             var calculator = new AgmaCalculator(_inputs);
             var (trace, warnings) = calculator.Calculate();
 
-            _resultsBox.Text = trace.BuildReport("AGMA 929-B22 CALCULATION RESULTS");
+            resultsBox.Text = trace.BuildReport("AGMA 929-B22 CALCULATION RESULTS");
 
             if (warnings.Count > 0)
             {
-                _statusLabel.Text = "Warning: " + string.Join("  |  ", warnings);
-                _statusLabel.ForeColor = Color.DarkRed;
+                statusLabel.Text = "Warning: " + string.Join("  |  ", warnings);
+                statusLabel.ForeColor = Color.DarkRed;
             }
             else
             {
-                _statusLabel.Text = "Calculation completed with no warnings.";
-                _statusLabel.ForeColor = Color.DarkGreen;
+                statusLabel.Text = "Calculation completed with no warnings.";
+                statusLabel.ForeColor = Color.DarkGreen;
             }
         }
         catch (Exception ex)
         {
-            _statusLabel.ForeColor = Color.DarkRed;
-            _statusLabel.Text = "Error: " + ex.Message;
-            _resultsBox.Text = "Calculation failed:\r\n\r\n" + ex;
+            statusLabel.ForeColor = Color.DarkRed;
+            statusLabel.Text = "Error: " + ex.Message;
+            resultsBox.Text = "Calculation failed:\r\n\r\n" + ex;
         }
     }
 
@@ -169,15 +106,127 @@ public class MainForm : Form
             CalculatePinionChamfer = false,
             DesiredChamferTopLand = 1.6
         };
-        _propertyGrid.SelectedObject = _inputs;
-        _statusLabel.ForeColor = Color.DarkBlue;
-        _statusLabel.Text = "Loaded AGMA 929-B22 Annex C spiral bevel example. Click Calculate to reproduce the published results.";
+        propertyGrid1.SelectedObject = _inputs;
+        statusLabel.ForeColor = Color.DarkBlue;
+        statusLabel.Text = "Loaded AGMA 929-B22 Annex C spiral bevel example. Click Calculate to reproduce the published results.";
+        RunCalculation();
+    }
+
+    private void LoadAnnexDExample()
+    {
+        // AGMA 929-B22, Annex D — hypoid example (1): face milling (spread blade),
+        // non-generated wheel, completing.
+        _inputs = new AgmaInputs
+        {
+            CuttingMethod = CuttingMethod.FaceMilling,
+            WheelGeneration = WheelGeneration.NonGenerated,
+            PinionProcess = MemberProcess.Completing,
+            WheelProcess = MemberProcess.Completing,
+            KeMethod = KeMethod.FaceMillingSpreadBlade,
+
+            Sigma = 90.0,
+            Offset_a = 38.10000,
+            z1 = 11,
+            z2 = 45,
+            m_mn = 4.49574,
+            b1 = 46.71200,
+            b2 = 40.64000,
+            Re1 = 151.29400,
+            Re2 = 143.57000,
+            Rm1 = 127.82600,
+            Rm2 = 123.10500,
+            Delta1 = 16.86930,
+            Delta2 = 72.31850,
+            ThetaF1 = 1.53490,
+            ThetaF2 = 4.62770,
+            Clearance_c = 1.77781,
+
+            Alpha_cv1 = 18.14480,
+            Alpha_cx1 = -21.85520,
+            Beta_m2 = 30.41010,
+            h_am1 = 7.27566,
+            h_am2 = 1.53072,
+            h_fm1 = 3.18216,
+            h_fm2 = 9.05347,
+            s_mn1 = 9.11957,
+            s_mn2 = 4.85460,
+
+            r_c0 = 114.30000,
+            Alpha_BX2 = 25.00000,
+            S_A1 = 0.0,
+            S_A2 = 0.0,
+            y_mutilation = 0.05,
+            Delta_f = 0.20,
+
+            CalculatePinionChamfer = false,
+            DesiredChamferTopLand = 1.6
+        };
+        propertyGrid1.SelectedObject = _inputs;
+        statusLabel.ForeColor = Color.DarkBlue;
+        statusLabel.Text = "Loaded AGMA 929-B22 Annex D hypoid example (non-generated wheel). Click Calculate to reproduce the published results.";
+        RunCalculation();
+    }
+
+    private void LoadAnnexEExample()
+    {
+        // AGMA 929-B22, Annex E — hypoid example (2): face hobbing (Gleason),
+        // non-generated wheel, completing. This example also works the pinion tip
+        // chamfer (4.8) all the way through, so it is loaded with the chamfer enabled.
+        _inputs = new AgmaInputs
+        {
+            CuttingMethod = CuttingMethod.FaceHobbing,
+            WheelGeneration = WheelGeneration.NonGenerated,
+            PinionProcess = MemberProcess.Completing,
+            WheelProcess = MemberProcess.Completing,
+            KeMethod = KeMethod.FaceHobbingGleasonOrKlingelnberg,
+
+            Sigma = 70.00000,
+            Offset_a = 25.40000,
+            z1 = 13,
+            z2 = 44,
+            m_mn = 4.04412,
+            b1 = 38.10200,
+            b2 = 35.00000,
+            Re1 = 118.74600,
+            Re2 = 142.87900,
+            Rm1 = 99.56800,
+            Rm2 = 125.25100,
+            Delta1 = 18.80470,
+            Delta2 = 50.34310,
+            ThetaF1 = 0.00000,
+            ThetaF2 = 0.00000,
+            Clearance_c = 1.26400,
+
+            Alpha_cv1 = 18.98480,
+            Alpha_cx1 = -21.01520,
+            Beta_m2 = 22.68220,
+            h_am1 = 6.71300,
+            h_am2 = 1.37500,
+            h_fm1 = 2.63900,
+            h_fm2 = 7.97700,
+            s_mn1 = 8.98499,
+            s_mn2 = 3.56128,
+
+            r_c0 = 76.00000,
+            z0 = 7,
+            Alpha_BX2 = 25.00000,
+            S_A1 = 0.0,
+            S_A2 = 0.0,
+            y_mutilation = 0.05,
+            Delta_f = 0.20,
+
+            CalculatePinionChamfer = true,
+            DesiredChamferTopLand = 0.80000
+        };
+        propertyGrid1.SelectedObject = _inputs;
+        statusLabel.ForeColor = Color.DarkBlue;
+        statusLabel.Text = "Loaded AGMA 929-B22 Annex E hypoid example (face hobbing, non-generated wheel, with pinion tip chamfer). Click Calculate to reproduce the published results.";
         RunCalculation();
     }
 
     private void SaveReport()
     {
-        if (string.IsNullOrEmpty(_resultsBox.Text))
+        if (string.IsNullOrEmpty(resultsBox.Text))
         {
             MessageBox.Show(this, "Run a calculation first.", "Nothing to save", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
@@ -190,7 +239,7 @@ public class MainForm : Form
         };
         if (dlg.ShowDialog(this) == DialogResult.OK)
         {
-            File.WriteAllText(dlg.FileName, _resultsBox.Text);
+            File.WriteAllText(dlg.FileName, resultsBox.Text);
         }
     }
 }

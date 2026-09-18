@@ -97,6 +97,7 @@ public static class SelfTest
         Check("beta_e2", 36.84579);
         Check("beta_i2", 33.94556);
         Check("Rx2", 148.58600);
+        Check("beta_x2", 50.28672);
         Check("Sigma_alpha", 40.00000);
         Check("p_n", 10.09492);
         Check("j_en", 0.15270);
@@ -189,6 +190,7 @@ public static class SelfTest
         Console.WriteLine($"RESULT (Annex C): {pass} passed, {fail} failed.");
 
         RunAnnexDCheck();
+        RunAnnexECheck();
     }
 
     private static void RunAnnexDCheck()
@@ -286,6 +288,7 @@ public static class SelfTest
         Check("beta_e2", 36.89265);
         Check("beta_i2", 24.30501);
         Check("Rx2", 164.43491);
+        Check("beta_x2", 44.03581);
         Check("Delta_alpha2", 6.85520);
         Check("Sigma_alpha", 40.00000);
         Check("p_n", 14.12377);
@@ -382,6 +385,227 @@ public static class SelfTest
         Console.WriteLine(warnings.Count > 0 ? "Warnings: " + string.Join("; ", warnings) : "No warnings.");
         Console.WriteLine();
         Console.WriteLine($"RESULT (Annex D): {pass} passed, {fail} failed.");
+    }
+
+    private static void RunAnnexECheck()
+    {
+        // AGMA 929-B22, Annex E — hypoid example (2): face hobbing (Gleason), non-generated
+        // wheel, completing. This is the only one of the three published examples that also
+        // works the pinion tip chamfer (4.8, Eq 189-215) all the way through, so it is the
+        // first real validation of that part of the calculator.
+        var inputs = new AgmaInputs
+        {
+            CuttingMethod = CuttingMethod.FaceHobbing,
+            WheelGeneration = WheelGeneration.NonGenerated,
+            PinionProcess = MemberProcess.Completing,
+            WheelProcess = MemberProcess.Completing,
+            KeMethod = KeMethod.FaceHobbingGleasonOrKlingelnberg,
+
+            Sigma = 70.00000,
+            Offset_a = 25.40000,
+            z1 = 13,
+            z2 = 44,
+            m_mn = 4.04412,
+            b1 = 38.10200,
+            b2 = 35.00000,
+            Re1 = 118.74600,
+            Re2 = 142.87900,
+            Rm1 = 99.56800,
+            Rm2 = 125.25100,
+            Delta1 = 18.80470,
+            Delta2 = 50.34310,
+            ThetaF1 = 0.00000,
+            ThetaF2 = 0.00000,
+            Clearance_c = 1.26400,
+
+            Alpha_cv1 = 18.98480,
+            Alpha_cx1 = -21.01520,
+            Beta_m2 = 22.68220,
+            h_am1 = 6.71300,
+            h_am2 = 1.37500,
+            h_fm1 = 2.63900,
+            h_fm2 = 7.97700,
+            s_mn1 = 8.98499,
+            s_mn2 = 3.56128,
+
+            r_c0 = 76.00000,
+            z0 = 7,
+            Alpha_BX2 = 25.00000,
+            S_A1 = 0.0,
+            S_A2 = 0.0,
+            y_mutilation = 0.05,
+            Delta_f = 0.20,
+
+            CalculatePinionChamfer = true,
+            DesiredChamferTopLand = 0.80000,
+        };
+
+        var (trace, warnings) = new AgmaCalculator(inputs).Calculate();
+        var byLabel = new Dictionary<string, List<double>>();
+        foreach (var row in trace.Rows)
+        {
+            if (row.Symbol.Length == 0 || double.IsNaN(row.Value)) continue;
+            if (!byLabel.TryGetValue(row.Symbol, out var list)) byLabel[row.Symbol] = list = new List<double>();
+            list.Add(row.Value);
+        }
+
+        int pass = 0, fail = 0;
+        void Check(string symbol, double expected, double tol = 0.001)
+        {
+            if (!byLabel.TryGetValue(symbol, out var values))
+            {
+                Console.WriteLine($"MISSING  {symbol,-14} expected={expected}");
+                fail++;
+                return;
+            }
+            double actual = values.OrderBy(v => Math.Abs(v - expected)).First();
+            bool ok = Math.Abs(actual - expected) <= tol;
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} {symbol,-14} expected={expected,12:0.00000} actual={actual,12:0.00000} diff={actual - expected,10:0.00000}");
+            if (ok) pass++; else fail++;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("=== AGMA 929-B22 Annex E (hypoid, face hobbing, non-generated) self-test ===");
+        Check("mu_m1", 0.50333);
+        Check("mu_m2", 0.50366);
+        Check("d_m1", 64.19016);
+        Check("d_m2", 192.85644);
+        Check("d_e1", 76.55397);
+        Check("d_e2", 219.99932);
+        Check("delta_f2", 50.34310);
+        Check("zeta_m", 12.42339);
+        Check("zeta_mp", 12.33101);
+        Check("a_p", 26.74849);
+        Check("Re21", 144.04480);
+        Check("Ri21", 106.84004);
+        Check("mu_e21", -0.03331);
+        Check("mu_i21", 1.02968);
+        Check("nu", 10.73356);
+        Check("rho_P0", 132.37165);
+        Check("rho_b", 117.92775);
+        Check("beta_e21", 35.21205);
+        Check("beta_i21", 8.63180);
+        Check("beta_e1", 45.91374);
+        Check("beta_i1", 23.13063);
+        Check("beta_e2", 34.46726);
+        Check("beta_i2", 9.49491);
+        Check("Rx2", 139.55017);
+        Check("beta_x2", 32.32203);
+        Check("Delta_alpha2", 6.01520);
+        Check("Sigma_alpha", 40.00000);
+        Check("p_n", 12.70496);
+        Check("j_en", 0.15200);
+        Check("Delta_c1", 0.19950);
+        Check("Delta_c2", 0.20075);
+        Check("W_m2", 3.33553);
+        Check("k_E", 1.00000);
+        Check("W_eff", -3.01695);
+        Check("xi", 0.00000);
+        Check("W_e2", 3.45756);
+        Check("W_e1", 2.21793);
+        Check("W_m1", 1.79825);
+        Check("W_i2", 2.83123);
+        Check("W_i1", 1.44671);
+        Check("W_x2", 3.46477);
+        Check("W_x1", 2.09666);
+        Check("W_min2", 2.83123);
+        Check("W_min1", 1.44671);
+        Check("W_max2", 3.46477);
+        Check("W_max1", 2.21793);
+        Check("W_B2", 1.44061);
+        Check("W_B1", 0.74836);
+        Check("r_a0max1", 0.76855);
+        Check("r_a0max2", 1.73879);
+        Check("r_i1", 32.47169);
+        Check("r_i2", 133.78035);
+        Check("h_ai1", 6.45705);
+        Check("h_ai2", 1.37500);
+        Check("Delta_h_ai1", 0.03334);
+        Check("Delta_h_ai2", 0.16637);
+        Check("h_aiadj1", 6.49040);
+        Check("h_aiadj2", 1.54137);
+        Check("r_iadj1", 32.43834);
+        Check("r_iadj2", 133.61399);
+        Check("r_ai1", 38.92874);
+        Check("r_ai2", 135.15535);
+        Check("r_bicv1", 30.70539);
+        Check("r_bicx1", 30.31184);
+        Check("r_bicx2", 126.50336);
+        Check("r_bicv2", 124.88200);
+        Check("alpha_icv1", 18.81285);
+        Check("alpha_icx1", 20.86135);
+        Check("rho_icv1", 5.96809);
+        Check("rho_icx1", 7.44639);
+        Check("rho_icx2", 29.61862);
+        Check("rho_icv2", 34.70633);
+        Check("h_infcv1", 1.06450);
+        Check("h_infcx1", 1.06450);
+        Check("h_infcx2", 3.19835);
+        Check("h_infcv2", 2.96244);
+        Check("r_a0cv11", 1.57777);
+        Check("r_a0cx11", 1.65969);
+        Check("r_a0cx12", 4.74052);
+        Check("r_a0cv12", 4.61882);
+        Check("r_a011", 1.57777);
+        Check("r_a012", 4.61882);
+        Check("r_fincv1", 0.76855);
+        Check("r_fincx1", 0.79809);
+        Check("r_fincx2", 1.73879);
+        Check("r_fincv2", 1.80562);
+        Check("r_a021", 0.76855);
+        Check("r_a022", 1.73879);
+        Check("Delta_Wmin1", 0.69836, 0.002);
+        Check("Delta_Wmin2", 1.39061, 0.002);
+        Check("Omega_cv1", 0.05233);
+        Check("Omega_cx1", 0.05048);
+        Check("Omega_cx2", 0.10172);
+        Check("Omega_cv2", 0.09805);
+        Check("r_a0cx31", 1.59826);
+        Check("r_a0cv31", 1.52635);
+        Check("r_a0cx32", 2.79312);
+        Check("r_a0cv32", 2.67374);
+        Check("r_a031", 1.52635);
+        Check("r_a032", 2.67374);
+
+        CheckSet(byLabel, "r_npt1", new[] { 32.47169, 50.54432, 83.53454 }, ref pass, ref fail);
+        CheckSet(byLabel, "r_npt2", new[] { 133.78035, 177.48976, 253.57927 }, ref pass, ref fail);
+        CheckSet(byLabel, "r_na1", new[] { 38.89874, 57.25732, 89.83559 }, ref pass, ref fail);
+        CheckSet(byLabel, "r_na2", new[] { 127.32330, 170.77676, 247.22397 }, ref pass, ref fail);
+        CheckSet(byLabel, "alpha_acx2", new[] { 6.50591, 10.64972, 14.09030 }, ref pass, ref fail);
+        CheckSet(byLabel, "alpha_acv2", new[] { 11.23805, 14.02754, 16.76773 }, ref pass, ref fail);
+        CheckSet(byLabel, "s_n1", new[] { 8.24425, 8.98402, 8.79869 }, ref pass, ref fail);
+        CheckSet(byLabel, "s_n2", new[] { 3.24393, 3.56128, 3.94449 }, ref pass, ref fail);
+
+        Console.WriteLine();
+        Console.WriteLine("Top land results:");
+        Check("s_ain1", 0.13975);
+        Check("s_amn1", 1.52334);
+        Check("s_aen1", 2.72862);
+        Check("s_ain2", 2.24266);
+        Check("s_amn2", 2.56000);
+        Check("s_aen2", 2.94322);
+
+        Console.WriteLine();
+        Console.WriteLine("Pinion tip chamfer (4.8, Eq 189-215):");
+        Check("R_c1", 89.59727);
+        Check("t_c1", 8.95327);
+        Check("r_nipt1", 32.47169);
+        Check("r_nipt21", 131.85670);
+        Check("r_bicv1(chamfer)", 30.70539);
+        Check("r_bicx1(chamfer)", 30.31184);
+        Check("r_bicx21", 124.68434);
+        Check("r_bicv21", 123.08629);
+        Check("s_ni1", 8.24425);
+        Check("s_ni21", 3.22338);
+        Check("h_aci1", 6.09248, 0.005);
+        Check("s_anci1", 0.79970, 0.005);
+        Check("h_ac1", 6.62892, 0.005);
+        Check("delta_ac1", 22.23354, 0.02);
+
+        Console.WriteLine();
+        Console.WriteLine(warnings.Count > 0 ? "Warnings: " + string.Join("; ", warnings) : "No warnings.");
+        Console.WriteLine();
+        Console.WriteLine($"RESULT (Annex E): {pass} passed, {fail} failed.");
     }
 
     private static void CheckSet(Dictionary<string, List<double>> byLabel, string symbol, double[] expectedSet, ref int pass, ref int fail)

@@ -121,7 +121,11 @@ public class AgmaCalculator
         {
             Rx2 = T.R("Rx2", "Eq(39)", "Cone distance for involute lengthwise curvature", Math.Sqrt(In.Rm2 * In.Rm2 - 2 * In.Rm2 * In.r_c0 * Sin(In.Beta_m2) + 2 * In.r_c0 * In.r_c0));
             mu_x2 = T.R("mu_x2", "Eq(40)", "Range variable for involute lengthwise curvature", Mu2(Rx2), "");
-            beta_x2 = Beta2(mu_x2);
+            // Eq(47) itself is not method-specific — it is the final beta2{mu_x2} evaluation
+            // common to both methods (only how mu_x2/Rx2 are obtained differs, Eq 39/40 here
+            // vs. the Eq 41-46 iteration below). The Annex C worked example (face milling)
+            // reports beta_x2 under "Eq(47)" too, so it is logged here for consistency.
+            beta_x2 = T.R("beta_x2", "Eq(47)", "Wheel spiral angle at involute lengthwise curvature", Beta2(mu_x2), "deg");
         }
         else
         {
@@ -407,10 +411,12 @@ public class AgmaCalculator
 
         if (In.WheelGeneration == WheelGeneration.NonGenerated)
             warnings.Add("Wheel generation = Non-generated: the PINION top land (Eq 180) was validated against " +
-                "AGMA 929-B22 Annex D to within roughly 0.3-0.4 mm (about 15%), not to full published precision " +
-                "the way every other result in this calculator was. The wheel's own top land (Eq 182) and all " +
-                "other results for a non-generated wheel matched the published examples exactly. Cross-check the " +
-                "pinion top land against the standard directly, or against manufacturer data, before relying on it.");
+                "AGMA 929-B22 Annex D and Annex E to within roughly 0.15-0.6 mm, not to full published precision " +
+                "the way every other result in this calculator was. This also affects the pinion tip chamfer " +
+                "(4.8), which is located by searching for where the top land equals a target value. The wheel's " +
+                "own top land (Eq 182) and all other results for a non-generated wheel matched both published " +
+                "examples exactly. Cross-check the pinion top land (and any chamfer built from it) against the " +
+                "standard directly, or against manufacturer data, before relying on it.");
 
         // ============================================================= 4.7 Top land formulas
         // Reusable point-evaluation of Eq (164)-(182) at any (mu1, mu2) pair.
@@ -460,26 +466,32 @@ public class AgmaCalculator
             else
             {
                 // Eq(180)'s second bracket mirrors Eq(181) (the generated-wheel top-land
-                // formula) evaluated at the pinion-boundary-mapped point mu21 = mu21{mu1}, so
-                // r_na2 there is built with the "generated" rule (Eq171) even though the wheel
-                // itself is non-generated; the third term then reconciles it against the
-                // wheel's true (non-generated) circular thickness/addendum at that same point.
-                // This reading was arrived at by numerical validation against AGMA 929-B22
-                // Annex D (hypoid, non-generated wheel): it matches the published pinion top
-                // land to within ~0.3-0.4 mm (~15%) at toe/mean/heel, closer than every other
-                // sign/subscript combination tried, but does not reproduce it to full published
-                // precision the way every other equation in this calculator does (see the
-                // Annex C and Annex D self-tests, "--selftest"). Treat this one case —
-                // pinion top land under a NON-GENERATED wheel — with extra caution.
+                // formula) evaluated at the pinion-boundary-mapped point mu21 = mu21{mu1}; the
+                // third term then reconciles it against the wheel's non-generated circular
+                // thickness/addendum at that same point.
+                //
+                // This reading — using the PINION addendum function h_a1{mu21} (Eq 62), not the
+                // wheel's h_a2, for both the tip radius in the second bracket and the final
+                // correction term — was arrived at by numerical validation against AGMA 929-B22
+                // Annex D and Annex E (the standard's two published non-generated-wheel worked
+                // examples). It is the closest of every sign/subscript/function combination
+                // tried (see git history for the ones ruled out), reproducing the published
+                // pinion top land to within roughly 0.15-0.6 mm, but it does NOT reproduce it to
+                // full published precision the way every other equation in this calculator does
+                // (see the Annex C/D/E self-tests, "--selftest"). Treat this one case — pinion
+                // top land, and the pinion tip chamfer built from it (4.8), under a
+                // NON-GENERATED wheel — with extra caution; the wheel's own top land (Eq 182)
+                // is unaffected and matches published examples exactly.
                 double mu21 = Mu21(mu1);
                 var (r_npt2b, _, _, _, s_n2b) = WheelSide(mu21);
-                double r_na2b = r_npt2b + Ha2(mu21);
+                double h_a1_mu21 = Ha1(mu21);
+                double r_na2b = r_npt2b + h_a1_mu21;
                 double alpha_acx2b = Acos((r_npt2b * Cos(In.Alpha_cv1)) / r_na2b);
                 double alpha_acv2b = Acos((r_npt2b * Cos(In.Alpha_cx1)) / r_na2b);
 
                 double bracket1 = s_n1 / r_npt1 + Inv(In.Alpha_cv1) - Inv(alpha_acv1) + Inv(-In.Alpha_cx1) - Inv(alpha_acx1);
                 double bracket2 = s_n2b / r_npt2b + Inv(In.Alpha_cv1) - Inv(alpha_acx2b) + Inv(-In.Alpha_cx1) - Inv(alpha_acv2b);
-                s_an1 = bracket1 * r_na1 + bracket2 * r_na2b - (s_n2b - Ha2(mu21) * (Tan(In.Alpha_cv1) - Tan(In.Alpha_cx1))); // Eq(180)
+                s_an1 = bracket1 * r_na1 + bracket2 * r_na2b - (s_n2b - h_a1_mu21 * (Tan(In.Alpha_cv1) - Tan(In.Alpha_cx1))); // Eq(180)
             }
 
             double s_an2 = In.WheelGeneration == WheelGeneration.Generated
