@@ -10,8 +10,24 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        propertyGrid1.SelectedObject = _inputs;
         exampleComboBox.SelectedIndex = 0;
+        Load += (_, _) => SetInputs(_inputs);
+    }
+
+    /// <summary>
+    /// Assigns a new input object to the PropertyGrid. WinForms' PropertyGrid has a known
+    /// quirk where the very first category's header band can fail to paint (its properties
+    /// still show, just without the gray category bar/label above them) - most reliably
+    /// triggered by assigning SelectedObject before the control's window handle exists (e.g.
+    /// from the form constructor), but it can recur on later reassignment too. Toggling
+    /// PropertySort forces the grid to fully rebuild its category layout, which clears it.
+    /// </summary>
+    private void SetInputs(AgmaInputs inputs)
+    {
+        _inputs = inputs;
+        propertyGrid1.SelectedObject = inputs;
+        propertyGrid1.PropertySort = PropertySort.Alphabetical;
+        propertyGrid1.PropertySort = PropertySort.Categorized;
     }
 
     private void CalculateButton_Click(object sender, EventArgs e) => RunCalculation();
@@ -57,7 +73,7 @@ public partial class MainForm : Form
         double t1Nm = 1440.0 * lbfInToNm;
         double powerKw = Math.PI * 1750.0 * t1Nm / 30000.0;
 
-        _inputs = new AgmaInputs
+        var inputs = new AgmaInputs
         {
             GearType = GearType.SpiralBevel,
             ToothSide = ToothSide.Concave,
@@ -114,7 +130,7 @@ public partial class MainForm : Form
             SH = 1.0,
             SF = 1.0,
         };
-        propertyGrid1.SelectedObject = _inputs;
+        SetInputs(inputs);
         statusLabel.ForeColor = Color.DarkBlue;
         statusLabel.Text = "Loaded ANSI/AGMA 2003-D19 Annex E worked example (SI units, manual I/J). Click Calculate to reproduce the published results.";
         RunCalculation();

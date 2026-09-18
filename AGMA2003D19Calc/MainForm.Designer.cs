@@ -149,9 +149,12 @@ partial class MainForm
         // MainForm
         //
         ClientSize = new Size(1500, 926);
+        // Dock=Fill control must be added before the Dock=Top/Bottom controls, otherwise the
+        // top/bottom-docked controls' claimed edge space can visually overlap the fill control
+        // instead of being excluded from it.
+        Controls.Add(splitContainerMain);
         Controls.Add(buttonPanel);
         Controls.Add(statusLabel);
-        Controls.Add(splitContainerMain);
         MinimumSize = new Size(1100, 650);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
