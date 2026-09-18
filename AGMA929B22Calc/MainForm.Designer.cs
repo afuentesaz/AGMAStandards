@@ -47,7 +47,7 @@ partial class MainForm
     // splitContainerMain
     // 
     splitContainerMain.Dock = DockStyle.Fill;
-    splitContainerMain.Location = new Point(0, 66);
+    splitContainerMain.Location = new Point(0, 40);
     splitContainerMain.Name = "splitContainerMain";
     // 
     // splitContainerMain.Panel1
@@ -138,9 +138,9 @@ partial class MainForm
     //
     // statusLabel
     //
-    statusLabel.Dock = DockStyle.Top;
+    statusLabel.Dock = DockStyle.Bottom;
     statusLabel.ForeColor = Color.DarkRed;
-    statusLabel.Location = new Point(0, 40);
+    statusLabel.Location = new Point(0, 874);
     statusLabel.Name = "statusLabel";
     statusLabel.Padding = new Padding(6, 4, 6, 4);
     statusLabel.Size = new Size(1400, 26);
