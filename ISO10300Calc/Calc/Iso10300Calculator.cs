@@ -4,10 +4,9 @@ using static ISO10300Calc.Calc.MathUtil;
 namespace ISO10300Calc.Calc;
 
 /// <summary>
-/// Implements ISO 10300:2023 parts 1-3, Method B1, for bevel gears without hypoid offset
-/// (a = 0, Sigma = 90 deg), drive flank only - the same scope restriction AGMA2003D19Calc
-/// applies to ANSI/AGMA 2003-D19. Equation numbers in comments refer to the published parts:
-/// [1] = ISO 10300-1:2023, [2] = ISO 10300-2:2023, [3] = ISO 10300-3:2023.
+/// Implements ISO 10300:2023 parts 1-3, Method B1, drive flank only, for both non-offset bevel
+/// gears (hypoid offset a = 0) and hypoid gears (a != 0). Equation numbers in comments refer to
+/// the published parts: [1] = ISO 10300-1:2023, [2] = ISO 10300-2:2023, [3] = ISO 10300-3:2023.
 /// </summary>
 public class Iso10300Calculator
 {
@@ -22,7 +21,7 @@ public class Iso10300Calculator
         double u = (double)In.z2 / In.z1;
 
         if (Math.Abs(In.Alpha_nD - In.Alpha_nC) > 1e-9 || Math.Abs(In.Alpha_eD - In.Alpha_eC) > 1e-9)
-            warnings.Add("Drive- and coast-side pressure angles differ, but this tool only rates the drive flank (matching ISO/TR 10300-30 Sample 1) - the coast flank is not separately evaluated.");
+            warnings.Add("Drive- and coast-side pressure angles differ, but this tool only rates the drive flank (matching ISO/TR 10300-30 Sample 1/Sample 2) - the coast flank is not separately evaluated.");
 
         // ============================================================= Clause 6 [1]: Torque, forces, speeds
         T.Section("ISO 10300-1, Clause 6: Torque, forces and speeds");
@@ -32,7 +31,7 @@ public class Iso10300Calculator
         double vmt2 = T.R("vmt2", "Eq(5)", "Tangential speed at mean point, wheel", In.dm2 * n2 / 19098.0, "m/s");
 
         // ============================================================= Annex A [1]: Virtual cylindrical gears
-        T.Section("ISO 10300-1, Annex A: Virtual cylindrical gears (a=0, drive flank)");
+        T.Section("ISO 10300-1, Annex A: Virtual cylindrical gears (drive flank)");
         var v = VirtualCylindricalGears.Calculate(In, T, warnings);
 
         // ============================================================= Clause 6 [1] (cont.): forces
@@ -43,7 +42,6 @@ public class Iso10300Calculator
 
         double Rm1 = In.dm1 / (2.0 * Sin(In.Delta1));
         double Rm2 = In.dm2 / (2.0 * Sin(In.Delta2));
-        double de2 = In.dm2 * In.Re / Rm2;
 
         // ============================================================= Clause 7 [1]: Dynamic factor
         T.Section("ISO 10300-1, Clause 7: Dynamic factor, Kv");
@@ -56,7 +54,7 @@ public class Iso10300Calculator
         }
         else if (In.DynamicFactorMode == DynamicFactorMode.MethodC)
         {
-            double vet2 = T.R("vet2", "Eq(23)", "Tangential speed at outer pitch diameter, wheel", vmt2 * de2 / In.dm2, "m/s");
+            double vet2 = T.R("vet2", "Eq(23)", "Tangential speed at outer pitch diameter, wheel", vmt2 * In.de2 / In.dm2, "m/s");
             double X = T.R("X", "Eq(25)", "Exponent", 0.25 * Math.Pow(In.AccuracyGradeB - 4.0, 0.667), "");
             double A = T.R("A", "Eq(24)", "Coefficient", 50.0 + 56.0 * (1.0 - X), "");
             Kv = T.R("Kv", "Eq(22)", "Dynamic factor (Method C)", Math.Pow(A / (A + Math.Sqrt(200.0 * vet2)), -X), "");
@@ -141,27 +139,38 @@ public class Iso10300Calculator
 
         // ============================================================= Clause 9 [1]: Transverse load factor
         T.Section("ISO 10300-1, Clause 9: Transverse load factors, KHalpha, KFalpha");
-        double KHalpha;
+        double KHalpha, KFalpha;
         if (In.TransverseLoadFactorMode == TransverseLoadFactorMode.Manual)
         {
-            KHalpha = T.R("KHalpha", "Manual", "Manually supplied transverse load factor (= KFalpha, a=0)", In.ManualKHalpha, "");
-        }
-        else if (In.TransverseLoadFactorMode == TransverseLoadFactorMode.MethodB)
-        {
-            double FmtH = T.R("FmtH", "Eq(47)", "Determinant tangential force at mid-facewidth", Fvmt * In.KA * Kv * KHbeta, "N");
-            double cfLocal = (Fvmt * In.KA / v.bvEff) >= 100.0 ? 1.0 : (Fvmt * In.KA / v.bvEff) / 100.0;
-            double cGamma20 = 20.0 * cfLocal;
-            double bracket = cGamma20 * (fptWheel - yAlpha) / (FmtH / v.bv);
-            double star = v.epsVGamma <= 2.0
-                ? 0.9 + 0.4 * (v.epsVGamma / 2.0) * bracket
-                : 0.9 + 0.4 * Math.Sqrt(2.0 * (v.epsVGamma - 1.0) / v.epsVGamma) * bracket;
-            KHalpha = T.R("KHalpha", "Eq(46/48)", "Transverse load factor (Method B, a=0 so KHalpha=KHalpha*)", star, "");
+            KHalpha = T.R("KHalpha", "Manual", "Manually supplied transverse load factor (= KFalpha)", In.ManualKHalpha, "");
+            KFalpha = KHalpha;
         }
         else
         {
-            KHalpha = TransverseLoadFactorTable(In.GearType, In.AccuracyGradeB, v.epsVGamma, T, warnings);
+            double KHalphaStar;
+            if (In.TransverseLoadFactorMode == TransverseLoadFactorMode.MethodB)
+            {
+                double FmtH = T.R("FmtH", "Eq(47)", "Determinant tangential force at mid-facewidth", Fvmt * In.KA * Kv * KHbeta, "N");
+                double cfLocal = (Fvmt * In.KA / v.bvEff) >= 100.0 ? 1.0 : (Fvmt * In.KA / v.bvEff) / 100.0;
+                double cGamma20 = 20.0 * cfLocal;
+                double bracket = cGamma20 * (fptWheel - yAlpha) / (FmtH / v.bv);
+                KHalphaStar = v.epsVGamma <= 2.0
+                    ? 0.9 + 0.4 * (v.epsVGamma / 2.0) * bracket
+                    : 0.9 + 0.4 * Math.Sqrt(2.0 * (v.epsVGamma - 1.0) / v.epsVGamma) * bracket;
+                T.R("KHalpha*", "Eq(46/48)", "Transverse load factor before offset blending (Method B)", KHalphaStar, "");
+            }
+            else
+            {
+                KHalphaStar = TransverseLoadFactorTable(In.GearType, In.AccuracyGradeB, v.epsVGamma, T, warnings);
+            }
+
+            // Eq 40/41: blend towards 1.0 as the relative hypoid offset arel grows from 0 to 0.1;
+            // beyond arel = 0.1 the standard treats KHalpha/KFalpha as fully replaced by 1.0 (9.1).
+            double arel = T.R("arel", "Eq(41)", "Relative hypoid offset", 2.0 * Math.Abs(In.HypoidOffset_a) / In.dm2, "");
+            double arelClamped = Math.Min(arel, 0.1);
+            KHalpha = T.R("KHalpha", "Eq(40)", "Transverse load factor for contact stress", KHalphaStar - (KHalphaStar - 1.0) / 0.1 * arelClamped, "");
+            KFalpha = KHalpha; // Eq 40/41 use the identical blend for KHalpha and KFalpha.
         }
-        double KFalpha = KHalpha; // a = 0 -> KHalpha = KFalpha (Eq 40/41).
         if (KHalpha < 1.0) { warnings.Add("Computed KHalpha/KFalpha < 1.0 - clamped to 1.0 per ISO 10300-1, Note under Formula (41)."); KHalpha = KFalpha = 1.0; }
 
         // ============================================================= ISO 10300-2, Method B1: Pitting
@@ -173,7 +182,7 @@ public class Iso10300Calculator
         double ZW = PittingFactors.WorkHardeningFactor(In.HardnessRatioMode, In.HBW_Pinion, In.HBW_Wheel, u, T);
         double ZKP = T.R("ZKP", "Eq(11)", "Bevel gear factor", 1.2, "");
         double ZX = T.R("ZX", "6.5.2", "Size factor (contact)", 1.0, "");
-        double ZHyp = T.R("ZHyp", "Eq(12)", "Hypoid factor (a=0)", 1.0, "");
+        double ZHyp = PittingFactors.HypoidFactor(In.HypoidOffset_a, vmt1, In.Beta_m1, In.Beta_m2, v.betaB, In.Alpha_nD, T);
         double ZNT1 = PittingFactors.LifeFactor(In.MaterialFamily, In.PinionLifeCycles, T, "pinion");
         double ZNT2 = PittingFactors.LifeFactor(In.MaterialFamily, In.WheelLifeCycles, T, "wheel");
 

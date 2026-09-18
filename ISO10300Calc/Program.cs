@@ -13,6 +13,7 @@ static class Program
         if (args.Length > 0 && args[0] == "--selftest")
         {
             SelfTest.RunSample1Check();
+            SelfTest.RunSample2Check();
             return;
         }
 

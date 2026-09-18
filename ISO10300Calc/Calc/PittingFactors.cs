@@ -5,8 +5,8 @@ namespace ISO10300Calc.Calc;
 
 /// <summary>
 /// ISO 10300-2:2023, Method B1 (Clause 6) contact-stress factors, plus the common factors of
-/// Clause 8 (elasticity, lubricant film, work hardening, life). Restricted, like
-/// <see cref="VirtualCylindricalGears"/>, to bevel gears without hypoid offset (a = 0).
+/// Clause 8 (elasticity, lubricant film, work hardening, life). Covers both non-offset bevel
+/// gears and hypoid gears, matching <see cref="VirtualCylindricalGears"/>.
 /// </summary>
 public static class PittingFactors
 {
@@ -54,7 +54,35 @@ public static class PittingFactors
     }
 
     private static double LengthAt(VirtualGearResult v, double f) =>
-        VirtualCylindricalGears.ContactLineLength(f, v.betaVb, v.gvAlpha, v.bvEff, v.bv, v.fmax);
+        VirtualCylindricalGears.ContactLineLength(f, v.betaVb, v.gamma, v.gvAlpha, v.bvEff, v.bv, v.fmax);
+
+    /// <summary>Hypoid factor Z_Hyp (6.5.3, Formulae 12 to 19): accounts for the influence of
+    /// lengthwise sliding on surface durability. Identically 1.0 for bevel gears without offset
+    /// (a = 0, per the standard's own note under Formula 12); otherwise computed from the
+    /// sliding-velocity components at the mean point and clamped to the standard's stated
+    /// validity range [0.6, 1.0].</summary>
+    public static double HypoidFactor(double hypoidOffsetA, double vmt1, double betam1, double betam2, double betaB, double alphaN, CalcTrace T)
+    {
+        if (Math.Abs(hypoidOffsetA) < 1e-9)
+            return T.R("ZHyp", "Eq(12)", "Hypoid factor (a=0)", 1.0, "");
+
+        double vg = vmt1 * Cos(betam1) * (Tan(betam1) - Tan(betam2));
+        double vgPar = Math.Abs(vg) * Cos(Math.Abs(betaB));
+        double vSigmaH = Math.Abs(2.0 * vmt1 * Cos(betam1) * Sin(alphaN));
+        double vSigmaL = Math.Abs(vmt1 * (Sin(betam1) + Sin(betam2) * Cos(betam1) / Cos(betam2)));
+        double vSigma = Math.Sqrt(vSigmaH * vSigmaH + vSigmaL * vSigmaL);
+        double omegaSigma = Math.Abs(Atan(vSigmaH / vSigmaL));
+        double vSigmaVert = vSigma * Sin(omegaSigma + Math.Abs(betaB));
+
+        T.R("vg", "Eq(13)", "Sliding velocity parallel to the contact line (mean point)", vg, "m/s");
+        T.R("vg,par", "Eq(14)", "Sliding velocity component parallel to the contact line", vgPar, "m/s");
+        T.R("vSigma,vert", "Eq(19)", "Sum of velocities vertical to the contact line", vSigmaVert, "m/s");
+
+        double zHyp = 1.0 - 0.3 * (vgPar / vSigmaVert - 0.15);
+        if (zHyp < 0.6 || zHyp > 1.0)
+            zHyp = Math.Clamp(zHyp, 0.6, 1.0);
+        return T.R("ZHyp", "Eq(12)", "Hypoid factor", zHyp, "");
+    }
 
     /// <summary>Elasticity factor Z_E (8.1, Formula 51).</summary>
     public static double ElasticityFactor(double E1, double nu1, double E2, double nu2, CalcTrace T) =>

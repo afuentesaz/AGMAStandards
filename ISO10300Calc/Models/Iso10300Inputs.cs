@@ -3,12 +3,15 @@ using System.ComponentModel;
 namespace ISO10300Calc.Models;
 
 /// <summary>
-/// All input data for ISO 10300:2023 (parts 1-3), Method B1, restricted like AGMA2003D19Calc
-/// to bevel gears without hypoid offset (a = 0, shaft angle = 90 deg). Bound to a PropertyGrid.
-/// SI units throughout (mm, N/mm^2, kW, rpm, deg), matching the standard's own SI equations.
-/// The pinion/wheel tooth geometry (clause groups 04-05) is the ISO 23509 output data that
-/// ISO 10300-1 Annex A itself takes as a given starting point - not computed by this tool,
-/// exactly as AGMA2003D19Calc takes its own Annex C(M) "initial data" as given inputs.
+/// All input data for ISO 10300:2023 (parts 1-3), Method B1. Covers both non-offset bevel
+/// gears (hypoid offset a = 0) and hypoid gears (a != 0, shaft angle typically 90 deg), the
+/// full scope of ISO 10300-1 Annex A's virtual-cylindrical-gear geometry; only the loaded
+/// (drive) flank is rated, matching both ISO/TR 10300-30 Sample 1 (bevel) and Sample 2
+/// (hypoid). Bound to a PropertyGrid. SI units throughout (mm, N/mm^2, kW, rpm, deg), matching
+/// the standard's own SI equations. The pinion/wheel tooth geometry (clause groups 04-05) is
+/// the ISO 23509 output data that ISO 10300-1 Annex A itself takes as a given starting point -
+/// not computed by this tool, exactly as AGMA2003D19Calc takes its own Annex C(M) "initial
+/// data" as given inputs.
 /// </summary>
 public class Iso10300Inputs
 {
@@ -43,8 +46,31 @@ public class Iso10300Inputs
 
     // ----------------------------------------------------------------- 3. Common geometry
     [Category("03. Common geometry")]
+    [DisplayName("Hypoid offset, a (mm)")]
+    [Description("10300-1, Annex A. Zero for bevel gears without offset. Nonzero enables the general (hypoid) virtual-cylindrical-gear formulas: nonzero auxiliary angle gamma in the facewidth/contact-line calculations, the offset-angle term in the radius of relative curvature (Eq A.39), the general KHalpha/KFalpha blend toward 1.0 (Eq 40/41), and the hypoid factor ZHyp (ISO 10300-2, 6.5.3) instead of ZHyp = 1.0.")]
+    public double HypoidOffset_a { get; set; } = 0.0;
+
+    [Category("03. Common geometry")]
+    [DisplayName("Offset angle in pitch plane, zeta_mp (deg)")]
+    [Description("10300-1, Annex A (ISO 23509 output). Zero for bevel gears without offset.")]
+    public double Zeta_mp { get; set; } = 0.0;
+
+    [Category("03. Common geometry")]
+    [DisplayName("Pinion offset angle in axial plane, zeta_m (deg)")]
+    public double Zeta_m { get; set; } = 0.0;
+
+    [Category("03. Common geometry")]
+    [DisplayName("Pinion offset angle in root plane, zeta_R (deg)")]
+    public double Zeta_R { get; set; } = 0.0;
+
+    [Category("03. Common geometry")]
     [DisplayName("Outer cone distance, Re (mm)")]
     public double Re { get; set; } = 93.973;
+
+    [Category("03. Common geometry")]
+    [DisplayName("Wheel outer pitch diameter, de2 (mm)")]
+    [Description("10300-1, 7.7.4. Used only by the Method C dynamic factor (Kv-C, Eq 23).")]
+    public double de2 { get; set; } = 176.90;
 
     [Category("03. Common geometry")]
     [DisplayName("Facewidth, b (mm)")]

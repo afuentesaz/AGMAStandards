@@ -110,7 +110,7 @@ partial class MainForm
         // exampleComboBox
         //
         exampleComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        exampleComboBox.Items.AddRange(new object[] { "ISO/TR 10300-30 Sample 1 (spiral bevel, no offset)" });
+        exampleComboBox.Items.AddRange(new object[] { "ISO/TR 10300-30 Sample 1 (spiral bevel, no offset)", "ISO/TR 10300-30 Sample 2 (hypoid gear, a=15mm)" });
         exampleComboBox.Location = new Point(123, 7);
         exampleComboBox.Name = "exampleComboBox";
         exampleComboBox.Size = new Size(360, 23);
