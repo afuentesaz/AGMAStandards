@@ -42,5 +42,14 @@ internal static class StandardCatalog
                 "hypoid bevel gears, validated against ISO/TR 10300-30 worked samples.",
             AccentColor: Color.FromArgb(53, 122, 66),
             CreateForm: () => new ISO10300Calc.MainForm()),
+
+        new(
+            Code: "ISO 23509:2016",
+            Title: "Bevel and Hypoid Gear Geometry Calculator",
+            Description: "Computes pitch cone parameters (Methods 0-3: Gleason, Oerlikon, " +
+                "Klingelnberg), full blank/tooth dimensions and the undercut check, validated " +
+                "against all four of the standard's own Annex F worked samples.",
+            AccentColor: Color.FromArgb(122, 63, 158),
+            CreateForm: () => new ISO23509Calc.MainForm()),
     };
 }

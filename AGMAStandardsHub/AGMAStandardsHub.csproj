@@ -6,12 +6,14 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AGMA929B22Calc\AGMA929B22Calc.csproj" />
     <ProjectReference Include="..\AGMA2003D19Calc\AGMA2003D19Calc.csproj" />
     <ProjectReference Include="..\ISO10300Calc\ISO10300Calc.csproj" />
+    <ProjectReference Include="..\ISO23509Calc\ISO23509Calc.csproj" />
   </ItemGroup>
 
 </Project>

@@ -16,6 +16,7 @@ public sealed class HubForm : Form
         MinimumSize = new Size(860, 560);
         BackColor = Color.FromArgb(241, 242, 245);
         Font = new Font("Segoe UI", 9f);
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? Icon;
 
         Controls.Add(BuildContentPanel());
         Controls.Add(BuildHeaderPanel());
