@@ -110,15 +110,15 @@ partial class MainForm
         // exampleComboBox
         //
         exampleComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        exampleComboBox.Items.AddRange(new object[] { "ISO/TR 10300-30 Sample 1 (spiral bevel, no offset)", "ISO/TR 10300-30 Sample 2 (hypoid gear, a=15mm)" });
+        exampleComboBox.Items.AddRange(new object[] { "ISO/TR 10300-30 Sample 1 (spiral bevel, no offset)", "ISO/TR 10300-30 Sample 2 (hypoid gear, a=15mm)", "ISO/TR 10300-30 Sample 3 (hypoid gear, a=31.75mm)" });
         exampleComboBox.Location = new Point(123, 7);
         exampleComboBox.Name = "exampleComboBox";
-        exampleComboBox.Size = new Size(360, 23);
+        exampleComboBox.Size = new Size(400, 23);
         exampleComboBox.TabIndex = 1;
         //
         // loadExampleButton
         //
-        loadExampleButton.Location = new Point(489, 7);
+        loadExampleButton.Location = new Point(529, 7);
         loadExampleButton.Name = "loadExampleButton";
         loadExampleButton.Size = new Size(110, 23);
         loadExampleButton.TabIndex = 2;
@@ -128,7 +128,7 @@ partial class MainForm
         //
         // saveReportButton
         //
-        saveReportButton.Location = new Point(605, 7);
+        saveReportButton.Location = new Point(645, 7);
         saveReportButton.Name = "saveReportButton";
         saveReportButton.Size = new Size(110, 23);
         saveReportButton.TabIndex = 3;

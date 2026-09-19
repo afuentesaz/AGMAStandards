@@ -35,6 +35,7 @@ public partial class MainForm : Form
     private void LoadExampleButton_Click(object sender, EventArgs e)
     {
         if (exampleComboBox.SelectedIndex == 1) LoadSample2Example();
+        else if (exampleComboBox.SelectedIndex == 2) LoadSample3Example();
         else LoadSample1Example();
     }
 
@@ -252,6 +253,107 @@ public partial class MainForm : Form
         SetInputs(inputs);
         statusLabel.ForeColor = Color.DarkBlue;
         statusLabel.Text = "Loaded ISO/TR 10300-30:2024 Sample 2 (hypoid gear, a=15mm). Click Calculate to reproduce the published results (note: ZLS/YLS have a known ~10% high bias for this sample - see the implementation findings docx).";
+        RunCalculation();
+    }
+
+    private void LoadSample3Example()
+    {
+        // ISO/TR 10300-30:2024, Annex C, Sample 3: a hypoid gear pair (z1=9, z2=34, hypoid
+        // offset a=31.75mm), rated by Method B1. Every value below is taken directly from the
+        // technical report's own Tables C.1 to C.4 (xhm1/xhm2 back-derived from the given
+        // absolute addenda, same technique as Sample 2 - see Calc/SelfTest.cs,
+        // RunSample3Check). Dynamic factor is supplied manually (matching the published
+        // Kv-B = 1.000) because this sample's own table is internally inconsistent for Kv-B -
+        // see the comment in RunSample3Check for the full trace of that finding.
+        var inputs = new Iso10300Inputs
+        {
+            GearType = GearType.SpiralBevel,
+            ShaftAngle = 90.0,
+            z1 = 9,
+            z2 = 34,
+
+            T1_Nm = 250.0,
+            PinionSpeed_rpm = 4500.0,
+
+            HypoidOffset_a = 31.75,
+            Zeta_mp = 23.981,
+            Zeta_m = 21.647,
+            Zeta_R = 21.647,
+
+            Re = 76.756,
+            de2 = 95.168,
+            b = 26.0,
+            EffectiveFacewidthFraction = 0.85,
+            mmn = 4.028,
+            met2 = 4.997,
+            Alpha_nD = 15.868,
+            Alpha_nC = 24.132,
+            Alpha_eD = 20.0,
+            Alpha_eC = 20.0,
+            Alpha_lim = -4.132,
+            Beta_m1 = 44.991,
+            Beta_m2 = 21.009,
+            CutterRadius = 76.0,
+
+            dm1 = 51.258,
+            Delta1 = 24.763,
+            h_am1 = 5.840,
+            h_fm1 = 3.222,
+            x_hm1 = 0.450,
+            x_sm1 = 0.040,
+            Rho_a01 = 0.8,
+            Spr1 = 0.0,
+
+            dm2 = 146.700,
+            Delta2 = 63.212,
+            h_am2 = 2.215,
+            h_fm2 = 6.847,
+            x_hm2 = -0.450,
+            x_sm2 = -0.060,
+            Rho_a02 = 1.2,
+            Spr2 = 0.0,
+
+            k_hfp = 1.25,
+            MaterialDensity = 7.86e-6,
+
+            KA = 1.1,
+            DynamicFactorMode = DynamicFactorMode.Manual,
+            ManualKv = 1.000,
+            fpt1_um = 12.0,
+            fpt2_um = 25.0,
+
+            Mounting = MountingCondition.OneMemberCantileverMounted,
+            ContactVerification = ContactPatternVerification.CheckedUnderLightTestLoad,
+            ManualKHbetaOverride = false,
+
+            TransverseLoadFactorMode = TransverseLoadFactorMode.MethodB,
+            ProfileCrowning = ProfileCrowning.Low,
+
+            MaterialFamily = MaterialFamily.CaseOrThroughHardenedSteel,
+            PinionLifeCycles = 3.0e6,
+            WheelLifeCycles = 3.0e6,
+
+            HardnessRatioMode = HardnessRatioMode.EqualHardness,
+
+            E_Pinion = 210000.0,
+            E_Wheel = 210000.0,
+            Nu_Pinion = 0.3,
+            Nu_Wheel = 0.3,
+
+            Viscosity40 = 100.0,
+            Rz_Flank_Pinion = 3.0,
+            Rz_Flank_Wheel = 3.0,
+            Rz_Root = 10.0,
+
+            SigmaHlim = 1510.0,
+            SigmaFlim = 500.0,
+
+            SH_min = 1.0,
+            SF_min = 1.3,
+        };
+        SetInputs(inputs);
+        statusLabel.ForeColor = Color.DarkBlue;
+        statusLabel.Text = "Loaded ISO/TR 10300-30:2024 Sample 3 (hypoid gear, a=31.75mm). Click Calculate to reproduce the published results (note: lbm/sigmaH0 have a known source-document discrepancy for this sample - see the implementation findings docx).";
         RunCalculation();
     }
 

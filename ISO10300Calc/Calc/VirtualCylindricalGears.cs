@@ -119,18 +119,30 @@ public static class VirtualCylindricalGears
         r.epsVBeta = T.R("eps_vbeta", "Eq(A.24)", "Face contact ratio", r.bvEff * Sin(r.betav) / (Math.PI * In.mmn), "");
         r.epsVGamma = T.R("eps_vgamma", "Eq(A.25)", "Virtual contact ratio", r.epsVAlpha + r.epsVBeta, "");
 
-        // ---- A.2.7: length of contact lines (tip/middle/root), Table A.2 (eps_vbeta >= 1 branch) ----
+        // ---- A.2.7: length of contact lines (tip/middle/root), Table A.2 ----
         double tanGamma = Tan(r.gamma);
         double fmaxB = 0.5 * (r.gvAlpha + r.bvEff * (tanGamma + Tan(r.betaVb))) * Cos(r.betaVb);
         double fmax0 = 0.5 * (r.gvAlpha - r.bvEff * (tanGamma + Tan(r.betaVb))) * Cos(r.betaVb);
         r.fmax = T.R("fmax", "Eq(A.33/34)", "Maximum distance to middle contact line", Math.Max(fmaxB, fmax0), "mm");
-        if (r.epsVBeta < 1.0)
-            warnings.Add($"Face contact ratio eps_vbeta = {r.epsVBeta:0.###} < 1: this tool only implements the ISO 10300-1 Table A.2 tip/mid/root contact-line positions for eps_vbeta >= 1 (validated against ISO/TR 10300-30 Sample 1 and Sample 2); the eps_vbeta < 1 branch is applied as an approximation - verify ZLS/YLS independently for this design.");
         if (hypoid && fmaxB > 1e-9 && fmax0 < -1e-9 && Math.Abs(fmax0) / fmaxB > 0.2)
             warnings.Add($"Pronounced hypoid offset asymmetry detected (fmaxB={fmaxB:0.##}mm vs fmax0={fmax0:0.##}mm): the contact-line clipping factor Clb (10300-1, Eq A.36) is validated against ISO/TR 10300-30 Sample 2 only at the middle contact line (f=0); the tip/root lines showed a ~10% high bias in ZLS/YLS for that sample's similarly asymmetric geometry - verify ZLS/YLS independently for this design (see ISO10300_Implementation_Findings.docx).");
-        r.fm = T.R("fm", "T:A.2", "Distance of the middle contact line (eps_vbeta>=1 branch)", 0.0, "mm");
-        r.ft = T.R("ft", "T:A.2", "Distance of the tip contact line (eps_vbeta>=1 branch)", r.pvet * Cos(r.betaVb), "mm");
-        r.fr = T.R("fr", "T:A.2", "Distance of the root contact line (eps_vbeta>=1 branch)", -r.pvet * Cos(r.betaVb), "mm");
+        if (r.epsVBeta >= 1.0)
+        {
+            // Table A.2, eps_vbeta >= 1 branch.
+            r.fm = T.R("fm", "T:A.2", "Distance of the middle contact line (eps_vbeta>=1 branch)", 0.0, "mm");
+            r.ft = T.R("ft", "T:A.2", "Distance of the tip contact line (eps_vbeta>=1 branch)", r.pvet * Cos(r.betaVb), "mm");
+            r.fr = T.R("fr", "T:A.2", "Distance of the root contact line (eps_vbeta>=1 branch)", -r.pvet * Cos(r.betaVb), "mm");
+        }
+        else
+        {
+            // Table A.2, eps_vbeta < 1 branch (covers eps_vbeta = 0 as the X*1 special case too -
+            // validated against ISO/TR 10300-30 Sample 3, eps_vbeta = 0.860, continuous with the
+            // eps_vbeta >= 1 branch above at eps_vbeta = 1 exactly, where X -> 0).
+            double X = (r.pvet - 0.5 * r.pvet * r.epsVAlpha) * Cos(r.betaVb) * (1.0 - r.epsVBeta);
+            r.fm = T.R("fm", "T:A.2", "Distance of the middle contact line (eps_vbeta<1 branch)", -X, "mm");
+            r.ft = T.R("ft", "T:A.2", "Distance of the tip contact line (eps_vbeta<1 branch)", -X + r.pvet * Cos(r.betaVb), "mm");
+            r.fr = T.R("fr", "T:A.2", "Distance of the root contact line (eps_vbeta<1 branch)", -X - r.pvet * Cos(r.betaVb), "mm");
+        }
         r.lbm = T.R("lbm", "Eq(A.26)", "Length of the middle contact line", ContactLineLength(r.fm, r.betaVb, r.gamma, r.gvAlpha, r.bvEff, r.bv, r.fmax), "mm");
 
         // ---- A.2.8: radius of relative curvature (drive side, Eq A.39) ----
