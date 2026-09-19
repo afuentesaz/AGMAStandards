@@ -210,10 +210,10 @@ public static class SelfTest
             ("YLS", 0.873, 0.03),
             ("Y_eps", 0.625, 0.001),
             ("YBS", 1.054, 0.02),
-            ("E (pinion)", 0.385, 0.05),
-            ("G (pinion)", -0.496, 0.05),
-            ("H (pinion)", -0.934, 0.05),
-            ("theta (pinion)", 50.783, 0.02),
+            ("E (pinion,D)", 0.385, 0.05),
+            ("G (pinion,D)", -0.496, 0.05),
+            ("H (pinion,D)", -0.934, 0.05),
+            ("theta (pinion,D)", 50.783, 0.02),
             ("sFn (pinion)", 7.423, 0.02),
             ("rhoF (pinion)", 1.023, 0.03),
             ("alpha_Fan (pinion)", 31.534, 0.02),
@@ -411,10 +411,10 @@ public static class SelfTest
 
             // Part 3 (tooth root bending), pinion. (YLS/sigmaF*/SF* affected by the ZLS gap above.)
             ("Y_eps", 0.625, 0.001),
-            ("E (pinion)", 0.213, 0.05),
-            ("G (pinion)", -0.647, 0.05),
-            ("H (pinion)", -0.969, 0.05),
-            ("theta (pinion)", 52.945, 0.02),
+            ("E (pinion,D)", 0.213, 0.05),
+            ("G (pinion,D)", -0.647, 0.05),
+            ("H (pinion,D)", -0.969, 0.05),
+            ("theta (pinion,D)", 52.945, 0.02),
             ("sFn (pinion)", 6.065, 0.03),
             ("rhoF (pinion)", 1.042, 0.03),
             ("alpha_an (pinion)", 28.393, 0.02),
@@ -642,10 +642,10 @@ public static class SelfTest
             // Part 3 (tooth root bending), pinion.
             ("YLS", 0.924, 0.03),
             ("Y_eps", 0.662, 0.03),
-            ("E (pinion)", 0.610, 0.05),
-            ("G (pinion)", -0.601, 0.05),
-            ("H (pinion)", -0.898, 0.05),
-            ("theta (pinion)", 47.476, 0.03),
+            ("E (pinion,D)", 0.610, 0.05),
+            ("G (pinion,D)", -0.601, 0.05),
+            ("H (pinion,D)", -0.898, 0.05),
+            ("theta (pinion,D)", 47.476, 0.03),
             ("sFn (pinion)", 8.991, 0.03),
             ("rhoF (pinion)", 1.236, 0.03),
             ("alpha_an (pinion)", 35.394, 0.02),
@@ -674,6 +674,234 @@ public static class SelfTest
 
         var (pass, fail) = RunChecks(inputs, "=== ISO/TR 10300-30:2024 Sample 3 self-test (hypoid gear, a=31.75mm, Method B1) ===", checks);
         Console.WriteLine($"RESULT (Sample 3): {pass} passed, {fail} failed.");
+        Console.WriteLine();
+    }
+
+    /// <summary>Sample 4 (Annex D): a hypoid gear pair designed via ISO 23509 Method 3, with a
+    /// NON-GENERATED (face-hobbed, form-cut) wheel - the only one of the four samples to exercise
+    /// ISO 10300-3, 6.4.1.3 (Formulae 18-23) instead of the generated-gear formulae (6-17), and
+    /// the only one with drive/coast effective pressure angles that actually differ (alphaeD =
+    /// 20.731 deg vs alphaeC = 19.269 deg), which exercises the sFn = 0.5*(sFn,D + sFn,C)
+    /// drive/coast averaging in Formula (12)/(20) for the first time (Samples 1-3 all have
+    /// alphaeD = alphaeC, so that averaging was previously a no-op). As with Samples 1 and 3,
+    /// the pitting life factor ZNT is not checked (nor are sigmaHP/SH downstream of it): ISO/TR
+    /// 10300-30 states ZNT = 1.0 directly without deriving it from a stated life NL, and this
+    /// tool's simplified ZNT(NL) curve (Table 6) does not reproduce exactly 1.0 at NL = 3e6 (see
+    /// RunSample1Check). The bending life factor YNT, by contrast, DOES hit exactly 1.0 at
+    /// NL = 3e6 on this tool's curve (Table 5), so sigmaFP/SF are checked as normal.</summary>
+    public static void RunSample4Check()
+    {
+        var inputs = new Iso10300Inputs
+        {
+            GearType = GearType.SpiralBevel,
+            ShaftAngle = 90.0,
+            z1 = 12,
+            z2 = 49,
+
+            T1_Nm = 3000.0,
+            PinionSpeed_rpm = 800.0,
+
+            HypoidOffset_a = 40.0,
+            Zeta_mp = 12.922,
+            Zeta_m = 12.265,
+            Zeta_R = 12.265,
+
+            Re = 191.949,
+            de2 = 400.0,
+            b = 60.0,
+            EffectiveFacewidthFraction = 0.85,
+            mmn = 6.065,
+            met2 = 8.163,
+            Alpha_nD = 19.0,
+            Alpha_nC = 21.0,
+            Alpha_eD = 20.731,
+            Alpha_eC = 19.269,
+            Alpha_lim = -1.731,
+            Beta_m1 = 42.922, // = 2*betav - betam2 (10300-1, Eq A.8: betav = (betam1+betam2)/2)
+            Beta_m2 = 30.0,
+            CutterRadius = 135.0,
+
+            dm1 = 99.377,
+            Delta1 = 18.200,
+            h_am1 = 7.278,
+            h_fm1 = 6.368,
+            x_hm1 = 0.2,
+            x_sm1 = 0.031,
+            Rho_a01 = 0.8,
+            Spr1 = 0.0,
+
+            dm2 = 343.151,
+            Delta2 = 71.360,
+            h_am2 = 4.852,
+            h_fm2 = 8.794,
+            x_hm2 = 0.0, // unused: the wheel is non-generated (Eq 18-23 have no addendum-mod term)
+            x_sm2 = -0.031,
+            Rho_a02 = 1.2,
+            Spr2 = 0.0,
+
+            k_hfp = 1.25,
+            MaterialDensity = 7.86e-6,
+            WheelIsNonGenerated = true, // Table D.4: "Wheel profile: Non-generated" (face hobbing)
+
+            KA = 1.1,
+            DynamicFactorMode = DynamicFactorMode.MethodB,
+            fpt1_um = 14.0,
+            fpt2_um = 27.0,
+
+            Mounting = MountingCondition.OneMemberCantileverMounted,
+            ContactVerification = ContactPatternVerification.CheckedUnderLightTestLoad,
+            ManualKHbetaOverride = false,
+
+            TransverseLoadFactorMode = TransverseLoadFactorMode.MethodB,
+            ProfileCrowning = ProfileCrowning.Low,
+
+            MaterialFamily = MaterialFamily.CaseOrThroughHardenedSteel,
+            PinionLifeCycles = 3.0e6,
+            WheelLifeCycles = 3.0e6,
+
+            HardnessRatioMode = HardnessRatioMode.EqualHardness,
+
+            E_Pinion = 210000.0,
+            E_Wheel = 210000.0,
+            Nu_Pinion = 0.3,
+            Nu_Wheel = 0.3,
+
+            Viscosity40 = 150.0,
+            Rz_Flank_Pinion = 8.0,
+            Rz_Flank_Wheel = 8.0,
+            Rz_Root = 16.0,
+
+            SigmaHlim = 1500.0,
+            SigmaFlim = 480.0,
+
+            SH_min = 1.0,
+            SF_min = 1.3,
+        };
+
+        var checks = new (string, double, double)[]
+        {
+            // Virtual cylindrical gears (Part 1, Annex A) - Table D.5.
+            ("dv1", 104.610, 0.01),
+            ("dv2", 1073.596, 0.01),
+            ("zv1", 13.872, 0.01),
+            ("zv2", 142.370, 0.01),
+            ("uv", 10.263, 0.01),
+            ("betav", 36.461, 0.01),
+            ("alphavet", 25.202, 0.01),
+            ("mvt", 7.541, 0.01),
+            ("theta_mp", 11.640, 0.02),
+            ("gamma'", 5.179, 0.03),
+            ("av", 589.103, 0.01),
+            ("betavb", 33.766, 0.01),
+            ("dva1", 119.166, 0.01),
+            ("dva2", 1083.300, 0.01),
+            ("dvf1", 91.874, 0.01),
+            ("dvf2", 1056.008, 0.01),
+            ("dvb1", 94.653, 0.01),
+            ("dvb2", 971.406, 0.01),
+            ("pvet", 21.435, 0.01),
+            ("gv_alpha", 25.100, 0.02),
+            ("eps_valpha", 1.171, 0.02),
+            ("bv_eff", 49.260, 0.02),
+            ("bv", 57.953, 0.02),
+            ("zvn1", 24.958, 0.01),
+            ("zvn2", 256.145, 0.01),
+            ("dvn1", 151.370, 0.01),
+            ("dvn2", 1553.483, 0.01),
+            ("dvan1", 165.925, 0.01),
+            ("dvan2", 1563.187, 0.01),
+            ("dvbn1", 141.569, 0.01),
+            ("dvbn2", 1452.900, 0.01),
+            ("eps_vbeta", 1.536, 0.01),
+            ("eps_vgamma", 2.707, 0.01),
+            ("betaB", 14.658, 0.01),
+            ("rho_t", 30.337, 0.02),
+            ("rho_rel", 28.394, 0.02),
+            ("ft", 17.820, 0.02),
+            ("fm", 0.000, 0.02),
+            ("fr", -17.820, 0.02),
+            ("lbm", 36.210, 0.03),
+
+            // Part 1 general load factors - Table D.6.
+            ("Fmt1", 60376.4, 0.001),
+            ("Fvmt", 66311.0, 0.005),
+            ("vmt1", 4.163, 0.005),
+            ("vmt2", 3.520, 0.005),
+            ("y_alpha", 2.025, 0.01),
+            // K itself carries a larger rounding cascade (from bv,eff, fp,eff, c' etc. all
+            // re-derived from unrounded inputs rather than TR-30's own rounded intermediates)
+            // than the dynamic factor Kv actually derived from it (Kv = N*K+1, N is small here
+            // so K's own error is heavily damped) - Kv itself matches to <1%.
+            ("K", 0.238, 0.06),
+            ("Kv", 1.000, 0.02),
+            ("KHbeta-C", 1.650, 0.001),
+            // KF0/KFbeta-C carry a ~1.5% cascade from this tool computing Rm2 from unrounded
+            // dm2/delta2 rather than ISO/TR 10300-30's own rounded intermediate Rm2 = 181.074mm
+            // (same class of rounding cascade as Sample 3's KF0 check) - widened accordingly, and
+            // propagated into the local (not nominal) stress figures sigmaF1/2-B1 and SF1/2-B1.
+            ("KF0", 1.082, 0.03),
+            ("KFbeta-C", 1.524, 0.03),
+            ("FmtH", 120354.5, 0.02),
+            ("KHalpha*", 1.008, 0.02),
+            ("arel", 0.233, 0.01),
+            ("KHalpha", 1.000, 0.01),
+
+            // Part 2 (macropitting) - Table D.7. ZNT/sigmaHP/SH not checked (see class doc).
+            ("ZM-B", 0.973, 0.02),
+            ("ZE", 191.646, 0.005),
+            ("ZL", 0.992, 0.01),
+            ("Zv", 0.975, 0.01),
+            ("ZR", 0.951, 0.01),
+            ("ZW", 1.000, 0.001),
+            ("ZKP", 1.200, 0.001),
+            ("ZHyp", 0.944, 0.02),
+            ("Fn", 87200.2, 0.01),
+            // ZLS/YLS, and everything downstream that uses them, carry the SAME known Clb
+            // (10300-1, Eq A.36) hypoid-asymmetry limitation already documented for Sample 2 and
+            // flagged by this run's own warning: fmaxB=26.17mm vs fmax0=-5.31mm is exactly the
+            // "pronounced asymmetry" (|fmax0|/fmaxB > 0.2) that biases the tip/root contact-line
+            // lengths. Here it gives ZLS about 3% high (0.825 vs published 0.801), hence YLS
+            // (=ZLS^2) about 6% high, sigmaH0/sigmaH about 3% high (ZLS enters sigmaH0 linearly),
+            // and sigmaF01/sigmaF1 (which use YLS directly) about 6-9% high. Tolerances below are
+            // sized to this specific, understood propagation - not loosened to hide an
+            // unexplained gap. See ISO10300_Implementation_Findings.docx for the full writeup.
+            ("ZLS", 0.801, 0.04),
+            ("sigmaH0-B1", 1375.3, 0.04),
+            ("sigmaH-B1", 1852.8, 0.04),
+
+            // Part 3 (tooth root bending), pinion (generated) - Table D.8.
+            ("YLS", 0.641, 0.08),
+            ("Y_eps", 0.625, 0.01),
+            ("sFn (pinion)", 13.077, 0.03),
+            ("rhoF (pinion)", 2.028, 0.03),
+            ("alpha_an (pinion)", 31.438, 0.02),
+            ("gamma_a (pinion)", 1.463, 0.1),
+            ("alpha_Fan (pinion)", 29.975, 0.03),
+            ("hFa (pinion)", 12.090, 0.03),
+            ("YFa (pinion)", 2.357, 0.03),
+            ("qs (pinion)", 3.224, 0.03),
+            ("YSa (pinion)", 1.904, 0.03),
+            ("YBS", 1.358, 0.03),
+            ("YR,relT", 0.972, 0.02),
+            ("Ydelta,relT (pinion)", 1.006, 0.01),
+            ("sigmaF01-B1", 460.4, 0.08),
+            ("sigmaF1-B1", 772.1, 0.10),
+            ("sigmaFP1-B1", 928.9, 0.02),
+            ("SF1-B1", 1.203, 0.10),
+
+            // Part 3, wheel (NON-generated, Eq 18-23) - Table D.9.
+            ("YFa (wheel)", 2.177, 0.02),
+            ("YSa (wheel)", 2.371, 0.02),
+            ("qs (wheel)", 5.947, 0.02),
+            ("Ydelta,relT (wheel)", 1.026, 0.01),
+            ("sigmaF02-B1", 529.7, 0.08),
+            ("sigmaF2-B1", 888.3, 0.10),
+            ("sigmaFP2-B1", 947.3, 0.02),
+            ("SF2-B1", 1.066, 0.10),
+        };
+
+        var (pass, fail) = RunChecks(inputs, "=== ISO/TR 10300-30:2024 Sample 4 self-test (hypoid gear, non-generated wheel, Method B1) ===", checks);
+        Console.WriteLine($"RESULT (Sample 4): {pass} passed, {fail} failed.");
         Console.WriteLine();
     }
 }

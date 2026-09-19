@@ -23,8 +23,13 @@ public class Iso10300Inputs
 
     [Category("01. Gear type and rating basics")]
     [DisplayName("Shaft angle, Sigma (deg)")]
-    [Description("For reference/reporting only. This tool's formulas apply exclusively to non-offset bevel gears (hypoid offset a = 0); use 90 deg unless analyzing a non-offset crossed-axis design.")]
+    [Description("For reference/reporting only. Use 90 deg unless analyzing a non-orthogonal crossed-axis design.")]
     public double ShaftAngle { get; set; } = 90.0;
+
+    [Category("01. Gear type and rating basics")]
+    [DisplayName("Hypoid offset, a (mm)")]
+    [Description("10300-1, Annex A. Zero for bevel gears without offset. Nonzero enables the general (hypoid) virtual-cylindrical-gear formulas: nonzero auxiliary angle gamma in the facewidth/contact-line calculations, the offset-angle term in the radius of relative curvature (Eq A.39), the general KHalpha/KFalpha blend toward 1.0 (Eq 40/41), and the hypoid factor ZHyp (ISO 10300-2, 6.5.3) instead of ZHyp = 1.0.")]
+    public double HypoidOffset_a { get; set; } = 0.0;
 
     [Category("01. Gear type and rating basics")]
     [DisplayName("Number of pinion teeth, z1")]
@@ -45,11 +50,6 @@ public class Iso10300Inputs
     public double PinionSpeed_rpm { get; set; } = 1200.0;
 
     // ----------------------------------------------------------------- 3. Common geometry
-    [Category("03. Common geometry")]
-    [DisplayName("Hypoid offset, a (mm)")]
-    [Description("10300-1, Annex A. Zero for bevel gears without offset. Nonzero enables the general (hypoid) virtual-cylindrical-gear formulas: nonzero auxiliary angle gamma in the facewidth/contact-line calculations, the offset-angle term in the radius of relative curvature (Eq A.39), the general KHalpha/KFalpha blend toward 1.0 (Eq 40/41), and the hypoid factor ZHyp (ISO 10300-2, 6.5.3) instead of ZHyp = 1.0.")]
-    public double HypoidOffset_a { get; set; } = 0.0;
-
     [Category("03. Common geometry")]
     [DisplayName("Offset angle in pitch plane, zeta_mp (deg)")]
     [Description("10300-1, Annex A (ISO 23509 output). Zero for bevel gears without offset.")]
@@ -204,6 +204,11 @@ public class Iso10300Inputs
     [DisplayName("Gear material density, rho (kg/mm^3)")]
     [Description("10300-1, 7.7.3.3. 7.86e-6 kg/mm^3 for steel.")]
     public double MaterialDensity { get; set; } = 7.86e-6;
+
+    [Category("06. Tool and generation data")]
+    [DisplayName("Wheel is non-generated (form-cut)")]
+    [Description("10300-3, 6.4.1.3: set true for a form-cut wheel (e.g. face-hobbed without a generating roll, as in ISO/TR 10300-30 Sample 4) to use the non-generated tooth-form formulae (18-23) instead of the generated formulae (6-17) for the wheel. The pinion is always assumed generated (its own adapted generating process per 6.4.1.2).")]
+    public bool WheelIsNonGenerated { get; set; } = false;
 
     // ----------------------------------------------------------------- 7. Application/dynamic
     [Category("07. Application and dynamic factor")]

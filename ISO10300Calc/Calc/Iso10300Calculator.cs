@@ -200,10 +200,22 @@ public class Iso10300Calculator
         // ============================================================= ISO 10300-3, Method B1: Bending
         T.Section("ISO 10300-3, Clause 6: Tooth-form factors (Method B1, pinion)");
         double ha0 = T.R("ha0", "6.4.1.2.2", "Tool addendum (= basic crown gear dedendum)", In.k_hfp * In.mmn, "mm");
-        var pinionForm = BendingFactors.ToothForm(In.mmn, ha0, In.x_hm1, In.x_sm1, In.Rho_a01, In.Spr1, In.Alpha_eD, In.Alpha_nD, v.zvn1, v.dvan1, v.dvbn1, T, "pinion");
+        // v.zvn1/v.zvn2 are already the drive-flank (alphaeD-based) normal-section tooth counts;
+        // the coast-flank counts differ (betavb depends on alphaE, Eq A.16) and are only needed
+        // for the sFn drive/coast average (ToothForm's internal H1,C/H2,C), not for hFa/YFa.
+        var (zvn1C, zvn2C) = VirtualCylindricalGears.NormalToothCountsForFlank(v.zv1, v.zv2, v.betav, In.Alpha_eC);
+        var pinionForm = BendingFactors.ToothForm(In.mmn, ha0, In.x_hm1, In.x_sm1, In.Rho_a01, In.Spr1, In.Alpha_eD, In.Alpha_eC, In.Alpha_nD, v.zvn1, zvn1C, v.dvan1, v.dvbn1, T, "pinion");
 
         T.Section("ISO 10300-3, Clause 6: Tooth-form factors (Method B1, wheel)");
-        var wheelForm = BendingFactors.ToothForm(In.mmn, ha0, In.x_hm2, In.x_sm2, In.Rho_a02, In.Spr2, In.Alpha_eD, In.Alpha_nD, v.zvn2, v.dvan2, v.dvbn2, T, "wheel");
+        ToothFormResult wheelForm;
+        if (In.WheelIsNonGenerated)
+        {
+            wheelForm = BendingFactors.ToothFormNonGenerated(In.mmn, ha0, In.x_sm2, In.Rho_a02, In.Spr2, In.Alpha_nD, In.Alpha_nC, T, "wheel");
+        }
+        else
+        {
+            wheelForm = BendingFactors.ToothForm(In.mmn, ha0, In.x_hm2, In.x_sm2, In.Rho_a02, In.Spr2, In.Alpha_eD, In.Alpha_eC, In.Alpha_nD, v.zvn2, zvn2C, v.dvan2, v.dvbn2, T, "wheel");
+        }
 
         T.Section("ISO 10300-3, Clause 6: Shared bending factors");
         double YLS = T.R("YLS", "Eq(36)", "Load sharing factor (bending)", ZLS * ZLS, "");

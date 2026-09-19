@@ -69,6 +69,20 @@ public static class VirtualCylindricalGears
         return lb0 * (1.0 - clb);
     }
 
+    /// <summary>Number of teeth of the virtual cylindrical gear in normal section for a specific
+    /// flank (10300-1, Eq A.16/A.41 applied with that flank's effective pressure angle). The
+    /// drive-flank values are already exposed on VirtualGearResult (zvn1/zvn2, using alphaeD);
+    /// this is only needed for the coast-flank auxiliary quantities H1,C/H2,C used to blend
+    /// sFn = 0.5*(sFn,D + sFn,C) in ISO 10300-3, 6.4.1.2, Formula (12).</summary>
+    public static (double zvn1, double zvn2) NormalToothCountsForFlank(double zv1, double zv2, double betav, double alphaE)
+    {
+        double betaVbSide = Asin(Sin(betav) * Cos(alphaE));
+        double cosBvbSide2 = Cos(betaVbSide) * Cos(betaVbSide);
+        double zvn1 = zv1 / (cosBvbSide2 * Cos(betav));
+        double zvn2 = zv2 / (cosBvbSide2 * Cos(betav));
+        return (zvn1, zvn2);
+    }
+
     public static VirtualGearResult Calculate(Iso10300Inputs In, CalcTrace T, List<string> warnings)
     {
         var r = new VirtualGearResult();

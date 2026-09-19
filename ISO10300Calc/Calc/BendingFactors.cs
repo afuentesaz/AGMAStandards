@@ -15,38 +15,52 @@ public static class BendingFactors
 {
     /// <summary>Tooth form factor Y_Fa and stress correction factor Y_Sa for one member
     /// (6.4.1.2, Formulae 6-17, and 6.4.2, Formulae 24-26), including the fixed-point solve for
-    /// the root-fillet angle vartheta (Formula 10).</summary>
+    /// the root-fillet angle vartheta (Formula 10). The tooth-root chord sFn is the average of a
+    /// drive-side and coast-side computation (Formula 12: sFn = 0.5*sFnD + 0.5*sFnC) - each side
+    /// uses its own effective pressure angle alphaE and, per Eq A.16/A.41, its own normal-section
+    /// virtual tooth count zvn, since betavb depends on alphaE. Only the drive side is carried
+    /// forward into rhoF/hFa/YFa/YSa, since only the drive flank is rated (see the mismatched
+    /// drive/coast pressure angle warning in Iso10300Calculator).</summary>
     public static ToothFormResult ToothForm(double mmn, double ha0, double xhm, double xsm, double rhoA0, double spr,
-        double alphaE, double alphaN, double zvn, double dvan, double dvbn, CalcTrace T, string who)
+        double alphaED, double alphaEC, double alphaN, double zvnD, double zvnC, double dvan, double dvbn, CalcTrace T, string who)
     {
-        double E = (Math.PI / 4.0 - xsm) * mmn - ha0 * Tan(alphaE) - rhoA0 * (1.0 - Sin(alphaE)) / Cos(alphaE) - spr;
-        double G = rhoA0 / mmn - ha0 / mmn + xhm;
-        double H = (2.0 / zvn) * (Math.PI / 2.0 - E / mmn) - Math.PI / 3.0;
-        T.R($"E ({who})", "Eq(7)", "Tooth-form auxiliary quantity E", E, "mm");
-        T.R($"G ({who})", "Eq(8)", "Tooth-form auxiliary quantity G", G, "");
-        T.R($"H ({who})", "Eq(9)", "Tooth-form auxiliary quantity H", H, "");
+        double ComputeSideSfn(double alphaE, double zvnSide, string side, out double G, out double thetaDeg)
+        {
+            double E = (Math.PI / 4.0 - xsm) * mmn - ha0 * Tan(alphaE) - rhoA0 * (1.0 - Sin(alphaE)) / Cos(alphaE) - spr;
+            G = rhoA0 / mmn - ha0 / mmn + xhm;
+            double H = (2.0 / zvnSide) * (Math.PI / 2.0 - E / mmn) - Math.PI / 3.0;
+            T.R($"E ({who},{side})", "Eq(7)", "Tooth-form auxiliary quantity E", E, "mm");
+            T.R($"G ({who},{side})", "Eq(8)", "Tooth-form auxiliary quantity G", G, "");
+            T.R($"H ({who},{side})", "Eq(9)", "Tooth-form auxiliary quantity H", H, "");
 
-        double thetaDeg = SolveRootFilletAngle(G, H, zvn);
-        T.R($"theta ({who})", "Eq(10)", "Root fillet angle (converged)", thetaDeg, "deg");
+            thetaDeg = SolveRootFilletAngle(G, H, zvnSide);
+            T.R($"theta ({who},{side})", "Eq(10)", "Root fillet angle (converged)", thetaDeg, "deg");
 
-        const double sixtyDeg = 60.0; // pi/3 rad
-        double sFn = mmn * zvn * Sin(sixtyDeg - thetaDeg) + Math.Sqrt(3.0) * mmn * (G / Cos(thetaDeg) - rhoA0 / mmn);
-        double rhoF = rhoA0 + (2.0 * G * G * mmn) / (Cos(thetaDeg) * (zvn * Cos(thetaDeg) * Cos(thetaDeg) - 2.0 * G));
-        T.R($"sFn ({who})", "Eq(11)", "Tooth root chordal thickness", sFn, "mm");
-        T.R($"rhoF ({who})", "Eq(13)", "Fillet radius at contact point of 30deg tangent", rhoF, "mm");
+            const double sixtyDeg = 60.0; // pi/3 rad
+            double sFnSide = mmn * zvnSide * Sin(sixtyDeg - thetaDeg) + Math.Sqrt(3.0) * mmn * (G / Cos(thetaDeg) - rhoA0 / mmn);
+            T.R($"sFn ({who},{side})", "Eq(11)", "Tooth root chordal thickness (this side)", sFnSide, "mm");
+            return sFnSide;
+        }
+
+        double sFnD = ComputeSideSfn(alphaED, zvnD, "D", out double GD, out double thetaD);
+        double sFnC = ComputeSideSfn(alphaEC, zvnC, "C", out _, out _);
+        double sFn = T.R($"sFn ({who})", "Eq(12)", "Tooth root chord (drive/coast average)", 0.5 * (sFnD + sFnC), "mm");
+        double rhoF = rhoA0 + (2.0 * GD * GD * mmn) / (Cos(thetaD) * (zvnD * Cos(thetaD) * Cos(thetaD) - 2.0 * GD));
+        T.R($"rhoF ({who})", "Eq(13)", "Fillet radius at contact point of 30deg tangent (drive side)", rhoF, "mm");
 
         double alphaAn = Acos(dvbn / dvan);
         // Inv() already returns the involute value on the natural (radian) scale, so the whole
         // bracket here - including the pi/2 term - is accumulated in radians before conversion.
-        double gammaARad = (1.0 / zvn) * (Math.PI / 2.0 + 2.0 * (xhm * Tan(alphaE) + xsm)) + Inv(alphaE) - Inv(alphaAn);
+        double gammaARad = (1.0 / zvnD) * (Math.PI / 2.0 + 2.0 * (xhm * Tan(alphaED) + xsm)) + Inv(alphaED) - Inv(alphaAn);
         double gammaA = ToDeg(gammaARad);
         double alphaFan = alphaAn - gammaA;
         T.R($"alpha_an ({who})", "Eq(16)", "Normal pressure angle at tooth tip", alphaAn, "deg");
         T.R($"gamma_a ({who})", "Eq(17)", "Auxiliary angle for tooth form/correction factor", gammaA, "deg");
         T.R($"alpha_Fan ({who})", "Eq(15)", "Load application angle at tooth tip", alphaFan, "deg");
 
-        double hFa = (mmn / 2.0) * ((Cos(gammaA) - Sin(gammaA) * Tan(alphaFan)) * (dvan / mmn) - zvn * Cos(sixtyDeg - thetaDeg) - G / Cos(thetaDeg) + rhoA0 / mmn);
-        T.R($"hFa ({who})", "Eq(14)", "Bending moment arm", hFa, "mm");
+        const double sixtyDeg2 = 60.0;
+        double hFa = (mmn / 2.0) * ((Cos(gammaA) - Sin(gammaA) * Tan(alphaFan)) * (dvan / mmn) - zvnD * Cos(sixtyDeg2 - thetaD) - GD / Cos(thetaD) + rhoA0 / mmn);
+        T.R($"hFa ({who})", "Eq(14)", "Bending moment arm (drive side)", hFa, "mm");
 
         double YFa = (6.0 * (hFa / mmn) * Cos(alphaFan)) / (Math.Pow(sFn / mmn, 2) * Cos(alphaN));
         T.R($"YFa ({who})", "Eq(6)", "Tooth form factor", YFa, "");
@@ -61,13 +75,54 @@ public static class BendingFactors
         return new ToothFormResult(sFn, rhoF, hFa, YFa, YSa, qs);
     }
 
+    /// <summary>Tooth form factor Y_Fa and stress correction factor Y_Sa for a NON-generated
+    /// (form-cut, e.g. face-hobbed without a generating roll) member (6.4.1.3, Formulae 18-23,
+    /// and 6.4.2, Formulae 24-26). Simpler than the generated-gear case: no addendum-modification
+    /// term, no fixed-point iteration, and the tooth-form formula uses the GENERATED pressure
+    /// angle alphaN (not the effective alphaE) since alphaFan = alphaN identically for a
+    /// non-generated flank. As with ToothForm, sFn is the drive/coast average (Formula 20) but
+    /// only the drive-side hFa is carried forward, since only the drive flank is rated.</summary>
+    public static ToothFormResult ToothFormNonGenerated(double mmn, double ha0, double xsm, double rhoA0, double spr,
+        double alphaND, double alphaNC, CalcTrace T, string who)
+    {
+        double ComputeSideSfn(double alphaN, string side, out double hFaSide)
+        {
+            double E = (Math.PI / 4.0 - xsm) * mmn - ha0 * Tan(alphaN) - rhoA0 * (1.0 - Sin(alphaN)) / Cos(alphaN) - spr;
+            T.R($"E ({who},{side})", "Eq(19)", "Tooth-form auxiliary quantity E (non-generated)", E, "mm");
+            double sFnSide = Math.PI * mmn - 2.0 * E - 2.0 * rhoA0 * Cos(30.0);
+            T.R($"sFn ({who},{side})", "Eq(18)", "Tooth root chordal thickness (non-generated, this side)", sFnSide, "mm");
+            hFaSide = ha0 - rhoA0 / 2.0 + mmn - mmn * Tan(alphaN) * (Math.PI / 4.0 + xsm - Tan(alphaN));
+            return sFnSide;
+        }
+
+        double sFnD = ComputeSideSfn(alphaND, "D", out double hFaD);
+        double sFnC = ComputeSideSfn(alphaNC, "C", out _);
+        double sFn = T.R($"sFn ({who})", "Eq(20)", "Tooth root chord (drive/coast average, non-generated)", 0.5 * (sFnD + sFnC), "mm");
+        double rhoF = T.R($"rhoF ({who})", "Eq(21)", "Fillet radius (non-generated: equal to tool edge radius)", rhoA0, "mm");
+        T.R($"hFa ({who})", "Eq(22)", "Bending moment arm (non-generated, drive side)", hFaD, "mm");
+
+        double YFa = 6.0 * (hFaD / mmn) / Math.Pow(sFn / mmn, 2);
+        T.R($"YFa ({who})", "Eq(23)", "Tooth form factor (non-generated)", YFa, "");
+
+        double La = sFn / hFaD;
+        double qs = sFn / (2.0 * rhoF);
+        double YSa = (1.2 + 0.13 * La) * Math.Pow(qs, 1.0 / (1.21 + 2.3 / La));
+        T.R($"La ({who})", "Eq(25)", "Stress-correction auxiliary ratio", La, "");
+        T.R($"qs ({who})", "Eq(26)", "Notch parameter", qs, "");
+        T.R($"YSa ({who})", "Eq(24)", "Stress correction factor", YSa, "");
+
+        return new ToothFormResult(sFn, rhoF, hFaD, YFa, YSa, qs);
+    }
+
     /// <summary>Contact ratio factor Y_epsilon (6.4.3, Formulae 27-29): the eps_vbeta = 0 and
     /// eps_vbeta >= 1 endpoints are given directly by the standard; the 0 &lt; eps_vbeta &lt; 1
     /// case is a linear interpolation between them (consistent with both endpoint formulae and
     /// with ISO 6336-3's equivalent helical-gear factor).</summary>
     public static double ContactRatioFactor(double epsVAlpha, double epsVBeta, CalcTrace T)
     {
-        double yEpsAlpha = 0.25 + 0.75 / epsVAlpha;
+        // Eq 27 has an explicit floor: Yeps,alpha = 0.25 + 0.75/eps_valpha >= 0.625 (confirmed
+        // against a 500 DPI zoom of ISO 10300-3:2023 page 20). Only binds for eps_valpha > 1.764.
+        double yEpsAlpha = Math.Max(0.25 + 0.75 / epsVAlpha, 0.625);
         double yEps = epsVBeta <= 0.0 ? yEpsAlpha
                     : epsVBeta >= 1.0 ? 0.625
                     : yEpsAlpha - epsVBeta * (yEpsAlpha - 0.625);

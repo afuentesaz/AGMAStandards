@@ -15,6 +15,7 @@ static class Program
             SelfTest.RunSample1Check();
             SelfTest.RunSample2Check();
             SelfTest.RunSample3Check();
+            SelfTest.RunSample4Check();
             return;
         }
 
