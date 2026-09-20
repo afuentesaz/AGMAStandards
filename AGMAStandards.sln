@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AGMAStandardsHub", "AGMASta
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ISO23509Calc", "ISO23509Calc\ISO23509Calc.csproj", "{511097E5-A16D-4E2F-A228-8716AB6BED76}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AGMA6134C21Calc", "AGMA6134C21Calc\AGMA6134C21Calc.csproj", "{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{511097E5-A16D-4E2F-A228-8716AB6BED76}.Release|x64.Build.0 = Release|Any CPU
 		{511097E5-A16D-4E2F-A228-8716AB6BED76}.Release|x86.ActiveCfg = Release|Any CPU
 		{511097E5-A16D-4E2F-A228-8716AB6BED76}.Release|x86.Build.0 = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|x64.Build.0 = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Debug|x86.Build.0 = Debug|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|x64.ActiveCfg = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|x64.Build.0 = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|x86.ActiveCfg = Release|Any CPU
+		{10C667FE-C2A9-4088-A58C-D037BCA1DBB2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

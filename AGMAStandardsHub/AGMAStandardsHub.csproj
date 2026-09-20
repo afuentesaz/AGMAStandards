@@ -14,6 +14,7 @@
     <ProjectReference Include="..\AGMA2003D19Calc\AGMA2003D19Calc.csproj" />
     <ProjectReference Include="..\ISO10300Calc\ISO10300Calc.csproj" />
     <ProjectReference Include="..\ISO23509Calc\ISO23509Calc.csproj" />
+    <ProjectReference Include="..\AGMA6134C21Calc\AGMA6134C21Calc.csproj" />
   </ItemGroup>
 
 </Project>

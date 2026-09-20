@@ -51,5 +51,14 @@ internal static class StandardCatalog
                 "against all four of the standard's own Annex F worked samples.",
             AccentColor: Color.FromArgb(122, 63, 158),
             CreateForm: () => new ISO23509Calc.MainForm()),
+
+        new(
+            Code: "ANSI/AGMA 6134-C21",
+            Title: "Enclosed Cylindrical Wormgear Speed Reducer Calculator",
+            Description: "Rates cylindrical wormgear meshes for wear and bending strength, " +
+                "computes efficiency, self-locking, overhung shaft loads and lubricant " +
+                "viscosity, validated against the standard's own Annex C example.",
+            AccentColor: Color.FromArgb(158, 122, 20),
+            CreateForm: () => new AGMA6134C21Calc.MainForm()),
     };
 }
