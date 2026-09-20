@@ -37,6 +37,7 @@ public partial class MainForm : Form
         if (exampleComboBox.SelectedIndex == 1) LoadSample2Example();
         else if (exampleComboBox.SelectedIndex == 2) LoadSample3Example();
         else if (exampleComboBox.SelectedIndex == 3) LoadSample4Example();
+        else if (exampleComboBox.SelectedIndex == 4) LoadSample5Example();
         else LoadSample1Example();
     }
 
@@ -455,6 +456,139 @@ public partial class MainForm : Form
         SetInputs(inputs);
         statusLabel.ForeColor = Color.DarkBlue;
         statusLabel.Text = "Loaded ISO/TR 10300-30:2024 Sample 4 (hypoid gear, non-generated wheel). Click Calculate to reproduce the published results (note: ZLS/YLS have a known ~3-8% high bias for this sample's hypoid offset asymmetry - see the implementation findings docx).";
+        RunCalculation();
+    }
+
+    private void LoadSample5Example()
+    {
+        // AGMA-vs-ISO comparison: ANSI/AGMA 2003-D19, Annex E's own worked example (z1=14,
+        // z2=39, 20 deg pressure angle, 35 deg spiral angle, 90 deg shaft angle, Re=93.98mm,
+        // b=25.4mm, cutter radius 114.3mm) is, by its basic proportions, the SAME reference
+        // spiral bevel gearset as ISO/TR 10300-30 Sample 1 (Re=93.973mm, b=25.4mm, cutter
+        // radius 114.3mm, identical teeth/angles - AGMA2003D19Calc/Calc/SelfTest.cs,
+        // RunAnnexECheck). Annex E itself never publishes full tooth geometry (it bypasses
+        // Annex C(M) via an Annex D chart lookup for I/J), so this example reuses Sample 1's
+        // own full ISO 23509-derived geometry (dm1/dm2, delta1/delta2, ham/hfm, xhm/xsm) as-is,
+        // and overrides only the load, life, material and dynamic-factor inputs with AGMA Annex
+        // E's own published values, to rate the SAME physical gear under the SAME operating
+        // point through both standards' formulas side by side. Judgment calls made explicit:
+        //   - Kv is supplied manually as AGMA's own computed 1.081 (DynamicFactorMode.Manual)
+        //     rather than derived from ISO's own Method B/C, because AGMA's quality number
+        //     Qv=11 and ISO's accuracy grade B (valid range 5-8 for the Kv-C curve) have no
+        //     official numeric conversion - holding Kv equal isolates the comparison to the
+        //     pitting/bending STRESS formulas, which is the point of this example.
+        //   - Mounting = OneMemberCantileverMounted: AGMA's "one member straddle mounted" and
+        //     ISO's "one member cantilever mounted" describe the identical physical arrangement
+        //     from opposite ends (AGMA counts straddle-mounted/good members, ISO counts
+        //     cantilever-mounted/bad ones), so KHbeta-C is left to compute normally here rather
+        //     than manually overridden - a genuine, meaningful structural comparison point.
+        //   - SigmaHlim/SigmaFlim use AGMA's own sac1/sat1 = 1380/205 N/mm^2 (Grade 1 carburized
+        //     case-hardened steel, clause 21) rather than ISO Sample 1's own 1500/480 N/mm^2, so
+        //     the material input is held identical between the two calculations. Note the large
+        //     gap between AGMA's sat=205 and ISO's typical sigmaFlim~480 for nominally similar
+        //     case-hardened steel is itself a known, real difference in how the two standards
+        //     define their respective bending allowable stress numbers (different reference test
+        //     gears/methodologies - ISO 10300-2's own text notes ISO 6336-5 carries a formal
+        //     cross-reference table to "equivalent ANSI/AGMA 2003 steel").
+        //   - KA=1.0 (AGMA Ko), T1/n1, life cycles, elastic modulus and Poisson's ratio are
+        //     AGMA Annex E's own published values, converted to SI.
+        //   - Lubricant viscosity/roughness (ZL/Zv/ZR) and the transverse load factor KHalpha
+        //     have no AGMA counterpart at all (AGMA 2003's rating formula does not separate
+        //     these out), so Sample 1's own ISO defaults are kept unchanged.
+        // This is a comparison example only - not part of --selftest, since there is no
+        // independently published "ISO rating of the AGMA Annex E gear" to check against.
+        const double lbfInToNm = 0.112984829;
+        var inputs = new Iso10300Inputs
+        {
+            GearType = GearType.SpiralBevel,
+            ShaftAngle = 90.0,
+            z1 = 14,
+            z2 = 39,
+
+            T1_Nm = 1440.0 * lbfInToNm, // AGMA Annex E: T1 = 1440 lbf.in
+            PinionSpeed_rpm = 1750.0,
+
+            HypoidOffset_a = 0.0,
+            Zeta_mp = 0.0,
+            Zeta_m = 0.0,
+            Zeta_R = 0.0,
+
+            Re = 93.973,
+            de2 = 176.90,
+            b = 25.4,
+            EffectiveFacewidthFraction = 0.85,
+            mmn = 3.213,
+            met2 = 4.536,
+            Alpha_nD = 20.0,
+            Alpha_nC = 20.0,
+            Alpha_eD = 20.0,
+            Alpha_eC = 20.0,
+            Alpha_lim = 0.0,
+            Beta_m1 = 35.0,
+            Beta_m2 = 35.0,
+            CutterRadius = 114.3,
+
+            dm1 = 54.918,
+            Delta1 = 19.747,
+            h_am1 = 4.837,
+            h_fm1 = 2.393,
+            x_hm1 = 0.505,
+            x_sm1 = 0.036,
+            Rho_a01 = 0.8,
+            Spr1 = 0.0,
+
+            dm2 = 152.987,
+            Delta2 = 70.253,
+            h_am2 = 1.590,
+            h_fm2 = 5.640,
+            x_hm2 = -0.505,
+            x_sm2 = -0.055,
+            Rho_a02 = 1.2,
+            Spr2 = 0.0,
+
+            k_hfp = 1.25,
+            MaterialDensity = 7.86e-6,
+
+            KA = 1.0, // AGMA Annex E: Ko = 1.0
+            DynamicFactorMode = DynamicFactorMode.Manual,
+            ManualKv = 1.081, // AGMA Annex E's own computed Kv (Qv=11) - see class note above
+            fpt1_um = 12.0,
+            fpt2_um = 26.0,
+
+            Mounting = MountingCondition.OneMemberCantileverMounted,
+            ContactVerification = ContactPatternVerification.CheckedUnderLightTestLoad,
+            ManualKHbetaOverride = false,
+
+            TransverseLoadFactorMode = TransverseLoadFactorMode.MethodB,
+            ProfileCrowning = ProfileCrowning.Low, // AGMA Annex E: properly crowned
+
+            MaterialFamily = MaterialFamily.CaseOrThroughHardenedSteel,
+            PinionLifeCycles = 1.0e9, // AGMA Annex E: NL1
+            WheelLifeCycles = 3.59e8, // AGMA Annex E: NL2
+
+            HardnessRatioMode = HardnessRatioMode.EqualHardness,
+            HBW_Pinion = 400.0, // AGMA Annex E: HBP (informational only under EqualHardness)
+            HBW_Wheel = 250.0,  // AGMA Annex E: HBG (informational only under EqualHardness)
+
+            E_Pinion = 207000.0, // AGMA Annex E: EP
+            E_Wheel = 207000.0,  // AGMA Annex E: EG
+            Nu_Pinion = 0.3,
+            Nu_Wheel = 0.3,
+
+            Viscosity40 = 150.0,
+            Rz_Flank_Pinion = 8.0,
+            Rz_Flank_Wheel = 8.0,
+            Rz_Root = 16.0,
+
+            SigmaHlim = 1380.0, // AGMA Annex E: sac1 = sac2, Grade 1 carburized case-hardened steel
+            SigmaFlim = 205.0,  // AGMA Annex E: sat1 = sat2 - see class note on the AGMA/ISO gap
+
+            SH_min = 1.0, // matches AGMA Annex E's own SH = 1.0
+            SF_min = 1.3, // ISO 10300-3, 5.2/6.3 mandated minimum for spiral bevel (not an AGMA figure)
+        };
+        SetInputs(inputs);
+        statusLabel.ForeColor = Color.DarkBlue;
+        statusLabel.Text = "Loaded ANSI/AGMA 2003-D19 Annex E example (same reference gearset as ISO/TR 10300-30 Sample 1), rated under ISO 10300 for direct AGMA-vs-ISO comparison. Click Calculate. See LoadSample5Example() for the judgment calls made in mapping AGMA's inputs onto this tool's fields.";
         RunCalculation();
     }
 

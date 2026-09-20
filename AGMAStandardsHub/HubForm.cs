@@ -110,6 +110,7 @@ public sealed class HubForm : Form
         {
             using var form = entry.CreateForm();
             form.StartPosition = FormStartPosition.CenterScreen;
+            form.Icon = Icon;
             form.ShowDialog(this);
         }
         finally

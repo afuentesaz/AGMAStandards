@@ -904,4 +904,138 @@ public static class SelfTest
         Console.WriteLine($"RESULT (Sample 4): {pass} passed, {fail} failed.");
         Console.WriteLine();
     }
+
+    /// <summary>
+    /// AGMA-vs-ISO comparison (Sample 5): reproduces MainForm.LoadSample5Example() - the same
+    /// reference gearset as Sample 1 (z1=14, z2=39, spiral bevel), but with ANSI/AGMA 2003-D19
+    /// Annex E's own load/life/material inputs, converted to SI, so both standards rate the same
+    /// physical gear under the same operating point. Unlike RunSample1-4Check, this is print-only
+    /// (no PASS/FAIL assertions): there is no independently published "ISO rating of the AGMA
+    /// Annex E gear" to check against - the whole point is to see what ISO 10300 itself predicts.
+    /// See MainForm.LoadSample5Example() for the full list of judgment calls made in mapping
+    /// AGMA's inputs onto this tool's fields (Kv held equal to AGMA's own 1.081; sigmaHlim/
+    /// sigmaFlim taken from AGMA's own sac/sat, not ISO's typical numbers, to hold the material
+    /// input constant). Mirrors AGMA2003D19Calc's own RunGeometryFactorSanityCheck, which
+    /// likewise prints an illustrative, non-validated run rather than asserting against a
+    /// published number.
+    /// </summary>
+    public static void PrintSample5Comparison()
+    {
+        const double lbfInToNm = 0.112984829;
+        var inputs = new Iso10300Inputs
+        {
+            GearType = GearType.SpiralBevel,
+            ShaftAngle = 90.0,
+            z1 = 14,
+            z2 = 39,
+
+            T1_Nm = 1440.0 * lbfInToNm,
+            PinionSpeed_rpm = 1750.0,
+
+            HypoidOffset_a = 0.0,
+            Zeta_mp = 0.0,
+            Zeta_m = 0.0,
+            Zeta_R = 0.0,
+
+            Re = 93.973,
+            de2 = 176.90,
+            b = 25.4,
+            EffectiveFacewidthFraction = 0.85,
+            mmn = 3.213,
+            met2 = 4.536,
+            Alpha_nD = 20.0,
+            Alpha_nC = 20.0,
+            Alpha_eD = 20.0,
+            Alpha_eC = 20.0,
+            Alpha_lim = 0.0,
+            Beta_m1 = 35.0,
+            Beta_m2 = 35.0,
+            CutterRadius = 114.3,
+
+            dm1 = 54.918,
+            Delta1 = 19.747,
+            h_am1 = 4.837,
+            h_fm1 = 2.393,
+            x_hm1 = 0.505,
+            x_sm1 = 0.036,
+            Rho_a01 = 0.8,
+            Spr1 = 0.0,
+
+            dm2 = 152.987,
+            Delta2 = 70.253,
+            h_am2 = 1.590,
+            h_fm2 = 5.640,
+            x_hm2 = -0.505,
+            x_sm2 = -0.055,
+            Rho_a02 = 1.2,
+            Spr2 = 0.0,
+
+            k_hfp = 1.25,
+            MaterialDensity = 7.86e-6,
+
+            KA = 1.0,
+            DynamicFactorMode = DynamicFactorMode.Manual,
+            ManualKv = 1.081,
+            fpt1_um = 12.0,
+            fpt2_um = 26.0,
+
+            Mounting = MountingCondition.OneMemberCantileverMounted,
+            ContactVerification = ContactPatternVerification.CheckedUnderLightTestLoad,
+            ManualKHbetaOverride = false,
+
+            TransverseLoadFactorMode = TransverseLoadFactorMode.MethodB,
+            ProfileCrowning = ProfileCrowning.Low,
+
+            MaterialFamily = MaterialFamily.CaseOrThroughHardenedSteel,
+            PinionLifeCycles = 1.0e9,
+            WheelLifeCycles = 3.59e8,
+
+            HardnessRatioMode = HardnessRatioMode.EqualHardness,
+            HBW_Pinion = 400.0,
+            HBW_Wheel = 250.0,
+
+            E_Pinion = 207000.0,
+            E_Wheel = 207000.0,
+            Nu_Pinion = 0.3,
+            Nu_Wheel = 0.3,
+
+            Viscosity40 = 150.0,
+            Rz_Flank_Pinion = 8.0,
+            Rz_Flank_Wheel = 8.0,
+            Rz_Root = 16.0,
+
+            SigmaHlim = 1380.0,
+            SigmaFlim = 205.0,
+
+            SH_min = 1.0,
+            SF_min = 1.3,
+        };
+
+        var (trace, warnings) = new Iso10300Calculator(inputs).Calculate();
+        var byLabel = new Dictionary<string, double>();
+        foreach (var row in trace.Rows)
+        {
+            if (row.Symbol.Length == 0 || double.IsNaN(row.Value)) continue;
+            byLabel[row.Symbol] = row.Value; // last write wins - fine for the single-valued final symbols read below
+        }
+        double Get(string symbol) => byLabel.TryGetValue(symbol, out var v) ? v : double.NaN;
+
+        Console.WriteLine("=== AGMA 2003-D19 Annex E gear, rated under ISO 10300 (AGMA-vs-ISO comparison) ===");
+        Console.WriteLine("Same reference gearset as Sample 1; AGMA Annex E's own T1/n1/Ko/Kv/life/material inputs.");
+        Console.WriteLine("Not a PASS/FAIL check - there is no published \"ISO rating of the AGMA Annex E gear\" to check against.");
+        Console.WriteLine();
+        Console.WriteLine($"sigmaH-B1 (calculated contact stress)   = {Get("sigmaH-B1"),10:0.0} N/mm^2");
+        Console.WriteLine($"SH1-B1, SH2-B1 (pitting safety factor)  = {Get("SH1-B1"),10:0.000}  /  {Get("SH2-B1"):0.000}");
+        Console.WriteLine($"sigmaF1-B1, sigmaF2-B1 (root stress)    = {Get("sigmaF1-B1"),10:0.0}  /  {Get("sigmaF2-B1"):0.0} N/mm^2");
+        Console.WriteLine($"SF1-B1, SF2-B1 (bending safety factor)  = {Get("SF1-B1"),10:0.000}  /  {Get("SF2-B1"):0.000}");
+        Console.WriteLine();
+        Console.WriteLine("For reference, AGMA 2003-D19 Annex E itself (same gear, same operating point) publishes:");
+        Console.WriteLine("  allowable power, pitting: Pac1=71.67 hp, Pac2=80.53 hp (applied power ~29.82 kW / 40.0 hp)");
+        Console.WriteLine("  allowable power, bending: Pat1=62.0 hp, Pat2=61.2 hp");
+        Console.WriteLine("AGMA rates via an allowable-vs-applied POWER ratio, not a stress-based safety factor the way ISO");
+        Console.WriteLine("does, so there is no like-for-like \"AGMA SH/SF\" number to diff directly against SH1-2/SF1-2 above.");
+        Console.WriteLine();
+        Console.WriteLine(warnings.Count > 0 ? "Warnings: " + string.Join("; ", warnings) : "No warnings.");
+        Console.WriteLine();
+    }
 }
