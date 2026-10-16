@@ -60,5 +60,14 @@ internal static class StandardCatalog
                 "viscosity, validated against the standard's own Annex C example.",
             AccentColor: Color.FromArgb(158, 122, 20),
             CreateForm: () => new AGMA6134C21Calc.MainForm()),
+
+        new(
+            Code: "ANSI/AGMA 2101-E25",
+            Title: "Spur and Helical Gear Macropitting and Bending Rating Calculator",
+            Description: "Rates external spur and helical gear pairs by the service factor and safety " +
+                "factor methods, with Z_I and Y_J computed per AGMA 908-B89, validated against " +
+                "Annex B and the 908 geometry factor tables.",
+            AccentColor: Color.FromArgb(30, 90, 160),
+            CreateForm: () => new AGMA2101E25Calc.MainForm()),
     };
 }
