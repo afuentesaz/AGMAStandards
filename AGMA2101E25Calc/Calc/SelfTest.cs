@@ -24,6 +24,9 @@ public static class SelfTest
         var (p3, f3) = RunExampleGeometryChecks();
         pass += p3; fail += f3;
         Console.WriteLine();
+        var (p4, f4) = RunRatedPowerChecks();
+        pass += p4; fail += f4;
+        Console.WriteLine();
         Console.WriteLine($"=== TOTAL: {pass} passed, {fail} failed ===");
         return fail;
     }
@@ -90,7 +93,67 @@ public static class SelfTest
         ("sigma_F2", 296.866188, 1e-5, ""),
         ("SF1", 1.38095, 1e-5, ""),
         ("SF2", 1.461569, 1e-5, ""),
+        ("P_SF", 281.736437, 1e-5, "SHmin = SFmin = 1, KO = YZ = 1: min(P_azu, P_ayu) of B.1"),
     };
+
+    /// <summary>
+    /// The load for the required safety factors (clause 7.2 solved for the load). Annex B gives four reference points:
+    /// with SHmin = SFmin = 1 it is min(P_azu, P_ayu) = 281.736437 kW; with SHmin = S_H1 of B.1 (1.114417) the pinion's
+    /// macropitting gives back B.1's own power, 226.854406 kW; so does SFmin = S_F1 of B.1 (1.38095) for its bending.
+    /// As a pinion torque, SHmin = 1.114417 gives back B.1's own input torque, 1494 Nm.
+    /// Then, on every example, the rating at the rated power has its governing safety factor equal to the one required.
+    /// </summary>
+    public static (int pass, int fail) RunRatedPowerChecks()
+    {
+        Console.WriteLine("=== Load for the required safety factors (clause 7.2 solved for the load) ===");
+        int pass = 0, fail = 0;
+        void Rated(string name, double shMin, double sfMin, double expected, double relTol)
+        {
+            AgmaInputs inputs = Examples.AnnexB();
+            inputs.Goal = RatingGoal.RatedLoadForRequiredSafetyFactors;
+            inputs.MinSafetyFactorPitting = shMin;
+            inputs.MinSafetyFactorBending = sfMin;
+            var (trace, warnings) = new AgmaCalculator(inputs).Calculate();
+            double p = trace.Last("P_SF"), pLoad = trace.Last("P");
+            bool ok = Math.Abs(p - expected) <= expected * relTol && Math.Abs(pLoad - p) <= 1e-9 * p && warnings.Count == 0;
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} {name}: P_SF = {p:0.000000} kW (expected {expected:0.000000}), rated at P = {pLoad:0.000000} kW, {warnings.Count} warning(s)");
+            if (ok) pass++; else fail++;
+        }
+        Rated("Annex B, SHmin = SFmin = 1", 1.0, 1.0, 281.736437, 1e-5);
+        Rated("Annex B, SHmin = 1.114417 (S_H1 of B.1)", 1.114417, 0.5, 226.854406, 3e-6);
+        Rated("Annex B, SFmin = 1.38095 (S_F1 of B.1)", 0.5, 1.38095, 226.854406, 1e-5);
+
+        // The same as a pinion torque ('Load as' = PinionTorque): B.1's own input torque, 1494 Nm, at 1450 rpm
+        {
+            AgmaInputs inputs = Examples.AnnexB();
+            inputs.Goal = RatingGoal.RatedLoadForRequiredSafetyFactors;
+            inputs.LoadInput = LoadSpecification.PinionTorque;
+            inputs.MinSafetyFactorPitting = 1.114417;
+            inputs.MinSafetyFactorBending = 0.5;
+            var (trace, warnings) = new AgmaCalculator(inputs).Calculate();
+            double t = trace.Last("T_SF"), tLoad = trace.Rows.First(r => r.Symbol == "T").Value;
+            bool ok = Math.Abs(t - 1494.0) <= 1494.0 * 3e-6 && Math.Abs(tLoad - t) <= 1e-9 * t && warnings.Count == 0;
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} Annex B as a torque, SHmin = 1.114417: T_SF = {t:0.0000} Nm (expected 1494), rated at T = {tLoad:0.0000} Nm, {warnings.Count} warning(s)");
+            if (ok) pass++; else fail++;
+        }
+
+        for (int index = 0; index < Examples.Names.Length; index++)
+        {
+            AgmaInputs inputs = Examples.Create(index);
+            inputs.MinSafetyFactorPitting = 1.3;
+            inputs.MinSafetyFactorBending = 1.6;
+            var (checkTrace, _) = new AgmaCalculator(inputs.Clone()).Calculate();
+            inputs.Goal = RatingGoal.RatedLoadForRequiredSafetyFactors;
+            var (trace, warnings) = new AgmaCalculator(inputs).Calculate();
+            double sh = Math.Min(trace.Last("SH1"), trace.Last("SH2")), sf = Math.Min(trace.Last("SF1"), trace.Last("SF2"));
+            bool governingMet = Math.Abs(sh - 1.3) <= 1e-9 * 1.3 && sf >= 1.6 * (1 - 1e-9) || Math.Abs(sf - 1.6) <= 1e-9 * 1.6 && sh >= 1.3 * (1 - 1e-9);
+            bool sameAsCheck = Math.Abs(checkTrace.Last("P_SF") - trace.Last("P_SF")) <= 1e-9 * trace.Last("P_SF");
+            bool ok = governingMet && sameAsCheck && !warnings.Any(w => w.Contains("safety factor"));
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} {Examples.Names[index]}, SHmin 1.3, SFmin 1.6: P_SF = {trace.Last("P_SF"):0.0000} kW, SH = {sh:0.000000000}, SF = {sf:0.000000000}");
+            if (ok) pass++; else fail++;
+        }
+        return (pass, fail);
+    }
 
     public static (int pass, int fail) RunAnnexBCheck()
     {

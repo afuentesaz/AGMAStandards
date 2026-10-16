@@ -10,6 +10,7 @@ public static class Examples
         "Annex B - Illustrative example (Z_I, Y_J given)",
         "Helical 21/35, 30 deg - geometry of AGMA 908 table p.49",
         "Spur 21/35, HPSTC - geometry of AGMA 908 table p.41",
+        "Helical 21/35 - pinion torque for S_H = 1.3, S_F = 1.6 at 1800 rpm",
     };
 
     public static AgmaInputs Create(int index) => index switch
@@ -17,8 +18,23 @@ public static class Examples
         0 => AnnexB(),
         1 => Helical908Table(),
         2 => Spur908Table(),
+        3 => HelicalRatedTorque(),
         _ => throw new ArgumentOutOfRangeException(nameof(index)),
     };
+
+    /// <summary>
+    /// The helical pair of <see cref="Helical908Table"/> rated for the required safety factors S_H = 1.3, S_F = 1.6:
+    /// the pinion torque (and the power) it can transmit at 1800 rpm for 20 000 h.
+    /// </summary>
+    public static AgmaInputs HelicalRatedTorque()
+    {
+        AgmaInputs inputs = Helical908Table();
+        inputs.Goal = RatingGoal.RatedLoadForRequiredSafetyFactors;
+        inputs.LoadInput = LoadSpecification.PinionTorque;
+        inputs.MinSafetyFactorPitting = 1.3;
+        inputs.MinSafetyFactorBending = 1.6;
+        return inputs;
+    }
 
     /// <summary>ANSI/AGMA 2101-E25 Annex B input data (B.1). Z_I, Y_J and Z_E are given by the standard.</summary>
     public static AgmaInputs AnnexB() => new()

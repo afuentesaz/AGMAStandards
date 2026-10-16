@@ -65,8 +65,8 @@ internal static class StandardCatalog
             Code: "ANSI/AGMA 2101-E25",
             Title: "Spur and Helical Gear Macropitting and Bending Rating Calculator",
             Description: "Rates external spur and helical gear pairs by the service factor and safety " +
-                "factor methods, with Z_I and Y_J computed per AGMA 908-B89, validated against " +
-                "Annex B and the 908 geometry factor tables.",
+                "factor methods, or gives the power or torque they can carry for required safety " +
+                "factors, with Z_I and Y_J per AGMA 908-B89; validated against Annex B and the 908 tables.",
             AccentColor: Color.FromArgb(30, 90, 160),
             CreateForm: () => new AGMA2101E25Calc.MainForm()),
     };

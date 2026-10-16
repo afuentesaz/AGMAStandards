@@ -69,9 +69,12 @@ public partial class MainForm : Form
         if (index < 0) return;
         SetInputs(Examples.Create(index));
         statusLabel.ForeColor = Color.DarkBlue;
-        statusLabel.Text = index == 0
-            ? "Loaded ANSI/AGMA 2101-E25 Annex B illustrative example (carburized Grade 2 pinion and wheel; Z_I, Y_J and Z_E as given in B.1). Click Calculate to reproduce the published results."
-            : $"Loaded example: {Examples.Names[index]}. Z_I and Y_J are calculated per AGMA 908-B89 and should match the 908 table values.";
+        statusLabel.Text = index switch
+        {
+            0 => "Loaded ANSI/AGMA 2101-E25 Annex B illustrative example (carburized Grade 2 pinion and wheel; Z_I, Y_J and Z_E as given in B.1). Click Calculate to reproduce the published results.",
+            3 => $"Loaded example: {Examples.Names[index]}. The rating goal is the load for the required safety factors, given as a pinion torque (see 'Load rating' in the report).",
+            _ => $"Loaded example: {Examples.Names[index]}. Z_I and Y_J are calculated per AGMA 908-B89 and should match the 908 table values.",
+        };
         RunCalculation();
     }
 

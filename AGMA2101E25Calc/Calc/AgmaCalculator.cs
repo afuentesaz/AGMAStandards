@@ -60,7 +60,18 @@ public class AgmaCalculator
         double vt = T.R("vt", "Eq(19)", "Pitch line velocity at operating pitch diameter", Math.PI * n1 * dw1 / 60000.0, "m/s");
 
         double torque, power;
-        if (In.LoadInput == LoadSpecification.PinionTorque)
+        if (In.Goal == RatingGoal.RatedLoadForRequiredSafetyFactors && In.LoadInput == LoadSpecification.PinionTorque)
+        {
+            double pSF = PowerForRequiredSafetyFactors();
+            torque = T.R("T", "7.2 solved", "Transmitted pinion torque = torque for the required safety factors (section 'Load rating')", 30000.0 * pSF / (Math.PI * n1), "Nm");
+            power = T.R("P", "", "Transmitted power, P = T n1 pi / 30000", pSF, "kW");
+        }
+        else if (In.Goal == RatingGoal.RatedLoadForRequiredSafetyFactors)
+        {
+            power = T.R("P", "7.2 solved", "Transmitted power = power for the required safety factors (section 'Load rating')", PowerForRequiredSafetyFactors(), "kW");
+            torque = T.R("T", "", "Transmitted pinion torque, T = 30000 P / (pi n1)", 30000.0 * power / (Math.PI * n1), "Nm");
+        }
+        else if (In.LoadInput == LoadSpecification.PinionTorque)
         {
             torque = T.R("T", "input", "Transmitted pinion torque", In.PinionTorque, "Nm");
             power = T.R("P", "", "Transmitted power, P = T n1 pi / 30000", torque * n1 * Math.PI / 30000.0, "kW");
@@ -226,18 +237,59 @@ public class AgmaCalculator
         double SF2 = T.R("SF2", "Eq(14)", "Safety factor for bending, wheel", YI2 * sigmaFP2 / sigmaF2 * YN2 / (Ytheta * YZ), "");
         double SH = Math.Min(SH1, SH2), SF = Math.Min(SF1, SF2);
 
+        // ============================================================= Clause 7.2 solved for the load
+        // No factor depends on the load at a given speed and life (K_V on the pitch line velocity, K_H method B on the
+        // geometry, Z_N / Y_N on the cycles): sigma_H grows with sqrt(P) and sigma_F with P, so S_H = S_Hmin and
+        // S_F = S_Fmin give the power of each member and mode in closed form from the powers of 7.1.
+        T.Section("Load rating for the required safety factors (clause 7.2 solved for the load)");
+        double SHreq = In.MinSafetyFactorPitting, SFreq = In.MinSafetyFactorBending;
+        double PH1 = T.R("P_H1", "7.2 solved", $"Power for S_H1 = {SHreq:0.###}, P_azu1 / (KO (SHmin YZ)^2)", Pazu1 / (KO * Math.Pow(SHreq * YZ, 2)), "kW");
+        double PH2 = T.R("P_H2", "7.2 solved", $"Power for S_H2 = {SHreq:0.###}, P_azu2 / (KO (SHmin YZ)^2)", Pazu2 / (KO * Math.Pow(SHreq * YZ, 2)), "kW");
+        double PF1 = T.R("P_F1", "7.2 solved", $"Power for S_F1 = {SFreq:0.###}, P_ayu1 / (KO SFmin YZ)", Payu1 / (KO * SFreq * YZ), "kW");
+        double PF2 = T.R("P_F2", "7.2 solved", $"Power for S_F2 = {SFreq:0.###}, P_ayu2 / (KO SFmin YZ)", Payu2 / (KO * SFreq * YZ), "kW");
+        double PSF = T.R("P_SF", "7.2 solved", "Power for the required safety factors, min(P_H1, P_H2, P_F1, P_F2)", Math.Min(Math.Min(PH1, PH2), Math.Min(PF1, PF2)), "kW");
+        double TSF = T.R("T_SF", "", "Pinion torque for the required safety factors, 30000 P_SF / (pi n1)", 30000.0 * PSF / (Math.PI * n1), "Nm");
+        string governs = GoverningMode(PSF, PH1, PH2, PF1, PF2);
+        T.Note($"Governed by {governs}. The load holds for n1 = {n1:0.###} rpm, L = {In.LifeHours:0.###} h and KO = {KO:0.###}; the yield check under peak loads (clause 19) is not made.");
+        if (In.Goal == RatingGoal.RatedLoadForRequiredSafetyFactors)
+            T.Note($"Rated at this load: min(SH1, SH2) = {SH:0.000000} for SHmin = {SHreq:0.######}, min(SF1, SF2) = {SF:0.000000} for SFmin = {SFreq:0.######}.");
+
         // ============================================================= Summary
         T.Section("Summary");
         T.Note($"Service factor method: CSF = {CSF:0.0000}, KSF = {KSF:0.0000}; rated power at unity service factor = {Prated:0.000} kW " +
                $"({(Pazu <= Payu ? "macropitting" : "bending")} governs) for P = {power:0.000} kW.");
-        T.Note($"Macropitting: SH = min(SH1, SH2) = {SH:0.0000} {(SH >= In.MinSafetyFactorPitting ? ">=" : "<")} SHmin = {In.MinSafetyFactorPitting:0.###} -> {(SH >= In.MinSafetyFactorPitting ? "OK" : "NOT OK")} (Eq 13)");
-        T.Note($"Bending:      SF = min(SF1, SF2) = {SF:0.0000} {(SF >= In.MinSafetyFactorBending ? ">=" : "<")} SFmin = {In.MinSafetyFactorBending:0.###} -> {(SF >= In.MinSafetyFactorBending ? "OK" : "NOT OK")} (Eq 15)");
-        if (SH < In.MinSafetyFactorPitting)
+        // Led by the quantity chosen in 'Load as' (power or pinion torque), the other in brackets
+        T.Note(In.LoadInput == LoadSpecification.PinionTorque
+            ? $"Pinion torque for the required safety factors SHmin = {SHreq:0.###}, SFmin = {SFreq:0.###}: {TSF:0.00} Nm at {n1:0.###} rpm ({PSF:0.000} kW), {governs} governs."
+            : $"Power for the required safety factors SHmin = {SHreq:0.###}, SFmin = {SFreq:0.###}: {PSF:0.000} kW at {n1:0.###} rpm ({TSF:0.00} Nm), {governs} governs.");
+        // A relative slack of 1e-9 so that the safety factor of the rated power, equal to its minimum, is not a warning
+        bool shOk = SH >= In.MinSafetyFactorPitting * (1.0 - 1e-9), sfOk = SF >= In.MinSafetyFactorBending * (1.0 - 1e-9);
+        T.Note($"Macropitting: SH = min(SH1, SH2) = {SH:0.0000} {(shOk ? ">=" : "<")} SHmin = {In.MinSafetyFactorPitting:0.###} -> {(shOk ? "OK" : "NOT OK")} (Eq 13)");
+        T.Note($"Bending:      SF = min(SF1, SF2) = {SF:0.0000} {(sfOk ? ">=" : "<")} SFmin = {In.MinSafetyFactorBending:0.###} -> {(sfOk ? "OK" : "NOT OK")} (Eq 15)");
+        if (!shOk)
             warnings.Add($"Macropitting safety factor SH = {SH:0.000} is below the minimum required SHmin = {In.MinSafetyFactorPitting:0.###}.");
-        if (SF < In.MinSafetyFactorBending)
+        if (!sfOk)
             warnings.Add($"Bending safety factor SF = {SF:0.000} is below the minimum required SFmin = {In.MinSafetyFactorBending:0.###}.");
 
         return (T, warnings);
+    }
+
+    /// <summary>The member and mode whose power is the smallest.</summary>
+    private static string GoverningMode(double p, double ph1, double ph2, double pf1, double pf2) =>
+        p == ph1 ? "macropitting of the pinion" : p == ph2 ? "macropitting of the wheel" : p == pf1 ? "bending of the pinion" : "bending of the wheel";
+
+    /// <summary>
+    /// The power for the required safety factors, from a rating of the same inputs at 1 kW: the powers of 7.1 and so
+    /// P_SF do not depend on the load, so this pass only provides them before the rating at P_SF.
+    /// </summary>
+    private double PowerForRequiredSafetyFactors()
+    {
+        AgmaInputs probe = In.Clone();
+        probe.Goal = RatingGoal.CheckTransmittedLoad;
+        probe.LoadInput = LoadSpecification.TransmittedPower;
+        probe.TransmittedPower = 1.0;
+        var (trace, _) = new AgmaCalculator(probe).Calculate();
+        return trace.Last("P_SF");
     }
 
     private static string PinionProportionEquation(double b) => b <= 25.0 ? "Eq(32)" : b <= 432.0 ? "Eq(33)" : "Eq(34)";
@@ -249,8 +301,10 @@ public class AgmaCalculator
         if (In.NormalModule <= 0 || In.PinionSpeed <= 0 || In.FaceWidthPinion <= 0 || In.FaceWidthWheel <= 0 || In.LifeHours <= 0)
             throw new ArgumentException("Module, pinion speed, face widths and life must be positive.");
         if (In.HelixAngle < 0) throw new ArgumentException("Enter the helix angle as a positive magnitude.");
-        if ((In.LoadInput == LoadSpecification.PinionTorque ? In.PinionTorque : In.TransmittedPower) <= 0)
+        if (In.Goal == RatingGoal.CheckTransmittedLoad && (In.LoadInput == LoadSpecification.PinionTorque ? In.PinionTorque : In.TransmittedPower) <= 0)
             throw new ArgumentException("The transmitted torque / power must be positive.");
+        if (In.MinSafetyFactorPitting <= 0 || In.MinSafetyFactorBending <= 0)
+            throw new ArgumentException("The required safety factors SHmin and SFmin must be positive.");
         if (In.KhMethod == LoadDistributionMethod.MethodBEmpirical && (In.BearingSpan <= 0 || In.PinionOffset < 0))
             throw new ArgumentException("Bearing span S must be positive and pinion offset S1 non-negative for KH method B.");
     }

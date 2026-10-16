@@ -40,6 +40,19 @@ namespace AGMA2101E25Calc.Models
         ShaperCutter
     }
 
+    /// <summary>What the rating is asked for.</summary>
+    public enum RatingGoal
+    {
+        /// <summary>The safety factors and service factors of the load given (clauses 7.1, 7.2).</summary>
+        CheckTransmittedLoad,
+        /// <summary>
+        /// The load the gear set can transmit at the pinion speed given with the required safety factors S_Hmin and
+        /// S_Fmin (clause 7.2 solved for the load), as a power or as a pinion torque (<see cref="LoadSpecification"/>);
+        /// the rating is then made at that load.
+        /// </summary>
+        RatedLoadForRequiredSafetyFactors
+    }
+
     /// <summary>How the transmitted load is specified (clause 7.5).</summary>
     public enum LoadSpecification
     {

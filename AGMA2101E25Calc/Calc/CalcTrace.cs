@@ -20,6 +20,15 @@ public class CalcTrace
 
     public IReadOnlyList<ReportRow> Rows => _rows;
 
+    /// <summary>The last value logged under a symbol (NaN when there is none).</summary>
+    public double Last(string symbol)
+    {
+        for (int i = _rows.Count - 1; i >= 0; i--)
+            if (_rows[i].Symbol == symbol && !double.IsNaN(_rows[i].Value))
+                return _rows[i].Value;
+        return double.NaN;
+    }
+
     public void Section(string title)
     {
         _section = title;

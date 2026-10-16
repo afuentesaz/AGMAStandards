@@ -58,17 +58,23 @@ public class AgmaInputs
     public double PinionSpeed { get; set; } = 1450.0;
 
     [Category("02. Operating conditions")]
-    [DisplayName("Load specified as")]
+    [DisplayName("Rating goal")]
+    [Description("CheckTransmittedLoad: the safety and service factors of the load below. RatedLoadForRequiredSafetyFactors: the power or pinion torque (see 'Load as') the gear set can transmit at the pinion speed above with the required safety factors SHmin and SFmin (clause 7.2 solved for the load; the load values below are not used), and the rating at that load.")]
+    public RatingGoal Goal { get; set; } = RatingGoal.CheckTransmittedLoad;
+
+    [Category("02. Operating conditions")]
+    [DisplayName("Load as (power or pinion torque)")]
+    [Description("CheckTransmittedLoad: whether the load is given by the power or by the pinion torque below. RatedLoadForRequiredSafetyFactors: whether the result is the power or the pinion torque (the other is given too).")]
     public LoadSpecification LoadInput { get; set; } = LoadSpecification.PinionTorque;
 
     [Category("02. Operating conditions")]
     [DisplayName("Transmitted power, P (kW)")]
-    [Description("Used when 'Load specified as' = TransmittedPower. The service factor method compares the rated power at unity service factor with this power (Eq 4, 5).")]
+    [Description("Used when the goal is CheckTransmittedLoad and 'Load as' = TransmittedPower. The service factor method compares the rated power at unity service factor with this power (Eq 4, 5).")]
     public double TransmittedPower { get; set; } = 226.854406;
 
     [Category("02. Operating conditions")]
     [DisplayName("Transmitted pinion torque, T (Nm)")]
-    [Description("Used when 'Load specified as' = PinionTorque.")]
+    [Description("Used when the goal is CheckTransmittedLoad and 'Load as' = PinionTorque.")]
     public double PinionTorque { get; set; } = 1494.0;
 
     [Category("02. Operating conditions")]
@@ -106,12 +112,13 @@ public class AgmaInputs
     public double ReliabilityFactorUser { get; set; } = 1.0;
 
     [Category("02. Operating conditions")]
-    [DisplayName("Minimum required safety factor, SHmin")]
-    [Description("Clause 7.2.1. Agreed between manufacturer and purchaser; recommended values are beyond the scope of the standard.")]
+    [DisplayName("Required safety factor, macropitting, SHmin")]
+    [Description("Clause 7.2.1. Agreed between manufacturer and purchaser; recommended values are beyond the scope of the standard. The minimum the safety factors are checked against, and the safety factor the rated power is computed for.")]
     public double MinSafetyFactorPitting { get; set; } = 1.0;
 
     [Category("02. Operating conditions")]
-    [DisplayName("Minimum required safety factor, SFmin")]
+    [DisplayName("Required safety factor, bending, SFmin")]
+    [Description("Clause 7.2.1. The minimum the safety factors are checked against, and the safety factor the rated power is computed for.")]
     public double MinSafetyFactorBending { get; set; } = 1.0;
 
     // ----------------------------------------------------------------- 3. Dynamic factor
@@ -426,4 +433,7 @@ public class AgmaInputs
     [Category("07. Wheel")]
     [DisplayName("Backup ratio, mB2 (0 = solid)")]
     public double BackupRatioWheel { get; set; } = 0.0;
+
+    /// <summary>A copy of every input (all of them are values).</summary>
+    public AgmaInputs Clone() => (AgmaInputs)MemberwiseClone();
 }
