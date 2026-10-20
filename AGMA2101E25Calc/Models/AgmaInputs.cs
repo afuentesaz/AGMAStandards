@@ -121,6 +121,12 @@ public class AgmaInputs
     [Description("Clause 7.2.1. The minimum the safety factors are checked against, and the safety factor the rated power is computed for.")]
     public double MinSafetyFactorBending { get; set; } = 1.0;
 
+    // ----------------------------------------------------------------- 2b. Load spectrum (clause 7.3, Annex D)
+    [Category("02b. Load spectrum (Miner's rule, clause 7.3)")]
+    [DisplayName("Load spectrum bins (T Nm, n1 rpm, t h; ...)")]
+    [Description("Used when the goal is Fatigue Life For Load Spectrum: one bin per load level, the pinion torque T (Nm), the pinion speed n1 (rpm) and the time t (h), separated by spaces, the bins by semicolons, e.g. \"700 3052 1000; 800 2670 2000\". The design life L above is the required life the Miner life is compared with.")]
+    public string LoadSpectrum { get; set; } = "";
+
     // ----------------------------------------------------------------- 3. Dynamic factor
     [Category("03. Dynamic factor (clause 11)")]
     [DisplayName("K_V method")]
@@ -436,4 +442,12 @@ public class AgmaInputs
 
     /// <summary>A copy of every input (all of them are values).</summary>
     public AgmaInputs Clone() => (AgmaInputs)MemberwiseClone();
+}
+
+/// <summary>One bin of a load spectrum (Annex D): pinion torque [Nm], pinion speed [rpm] and time [h].</summary>
+public class SpectrumBin
+{
+    public double Torque;
+    public double Speed;
+    public double Hours;
 }

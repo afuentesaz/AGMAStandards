@@ -36,6 +36,19 @@ public static class Examples
         return inputs;
     }
 
+    /// <summary>
+    /// ANSI/AGMA 2101-E25 Annex D.2 (fatigue life by Miner's rule): the Annex B gear set (d_w1 = 70.338462 mm, K_H =
+    /// 1.17938, K_V by method B with Av = 6: B = 0.25, C = 92) under the six bins of the D.2 load spectrum, with the
+    /// desired safety factors S_H = S_F = 1. Not one of <see cref="Names"/>: used by the self-test.
+    /// </summary>
+    public static AgmaInputs AnnexD2()
+    {
+        AgmaInputs inputs = AnnexB();
+        inputs.Goal = RatingGoal.FatigueLifeForLoadSpectrum;
+        inputs.LoadSpectrum = "700 3052 1000; 800 2670 2000; 900 2374 4000; 1000 2136 1500; 1200 1780 1000; 1500 1424 500";
+        return inputs;
+    }
+
     /// <summary>ANSI/AGMA 2101-E25 Annex B input data (B.1). Z_I, Y_J and Z_E are given by the standard.</summary>
     public static AgmaInputs AnnexB() => new()
     {

@@ -50,7 +50,13 @@ namespace AGMA2101E25Calc.Models
         /// S_Fmin (clause 7.2 solved for the load), as a power or as a pinion torque (<see cref="LoadSpecification"/>);
         /// the rating is then made at that load.
         /// </summary>
-        RatedLoadForRequiredSafetyFactors
+        RatedLoadForRequiredSafetyFactors,
+        /// <summary>
+        /// The fatigue life of each member for macropitting and bending under a load spectrum (bins of pinion torque,
+        /// pinion speed and time), by Miner's rule (clause 7.3, Annex D); the rating is also made at the bin of the largest
+        /// torque.
+        /// </summary>
+        FatigueLifeForLoadSpectrum
     }
 
     /// <summary>How the transmitted load is specified (clause 7.5).</summary>

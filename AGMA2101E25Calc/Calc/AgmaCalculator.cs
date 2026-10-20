@@ -1,3 +1,4 @@
+using System.Globalization;
 using AGMA2101E25Calc.Models;
 using static AGMA2101E25Calc.Calc.Agma2101Factors;
 
@@ -20,6 +21,9 @@ public class AgmaCalculator
 
     public (CalcTrace trace, List<string> warnings) Calculate()
     {
+        if (In.Goal == RatingGoal.FatigueLifeForLoadSpectrum)
+            return CalculateFatigueLife();
+
         var warnings = new List<string>();
         Validate();
 
@@ -291,6 +295,204 @@ public class AgmaCalculator
         var (trace, _) = new AgmaCalculator(probe).Calculate();
         return trace.Last("P_SF");
     }
+
+    // ================================================================= Clause 7.3 / Annex D: fatigue life by Miner's rule
+    // Written together with IGDv4.0's copy (2026-10-20). Each bin is rated as a transmitted load (clause 7.2 at its torque
+    // and speed), so K_V follows the speed of the bin and every other factor is the rating's own. The fatigue stress
+    // numbers are those of D.4 and D.11 (no K_O: the spectrum stands for the loads; K_S = 1, the metric edition has no size
+    // factor), the stress cycle factors D.5 / D.12 (Y_N divided by the reverse bending factor Y_I as in Eq 14; D.2 has
+    // Y_I = 1), the cycles to failure the curves of clause 17 inverted (CyclesToFailureZN / YN), and Miner's sum D.2, D.3,
+    // D.8 to D.10, which reduces to L = (total time) / (damage of one pass of the spectrum). With K_O = 1 a single bin at
+    // the load for the required safety factors lasts exactly the design life (the continuity of 7.2 and Annex D).
+
+    /// <summary>
+    /// The fatigue lives of the pinion and the wheel for macropitting and bending under the load spectrum of
+    /// <see cref="AgmaInputs.LoadSpectrum"/>: the rating at the bin of the largest torque, then a rating per bin and
+    /// Miner's sum of Annex D.
+    /// </summary>
+    private (CalcTrace trace, List<string> warnings) CalculateFatigueLife()
+    {
+        var warnings = new List<string>();
+        List<SpectrumBin> bins = ParseLoadSpectrum(In.LoadSpectrum);
+        if (In.LifeHours <= 0)
+            throw new ArgumentException("The design life L (the required life) must be positive.");
+        double totalHours = bins.Sum(bin => bin.Hours);
+        if (!(totalHours > 0.0))
+            throw new ArgumentException("The load spectrum needs a time: every bin has 0 h.");
+
+        // The rating at the peak load, then one rating per bin
+        int peak = 0;
+        for (int i = 1; i < bins.Count; i++)
+            if (bins[i].Torque > bins[peak].Torque)
+                peak = i;
+        var (report, peakWarnings) = new AgmaCalculator(BinInputs(bins[peak])).Calculate();
+        AddBinWarnings(warnings, peakWarnings, null);
+        var rated = new CalcTrace[bins.Count];
+        for (int i = 0; i < bins.Count; i++)
+        {
+            if (i == peak) { rated[i] = report; continue; }
+            var (binTrace, binWarnings) = new AgmaCalculator(BinInputs(bins[i])).Calculate();
+            rated[i] = binTrace;
+            AddBinWarnings(warnings, binWarnings, i + 1);
+        }
+
+        CalcTrace T = report;  // the sections of Annex D are added to the rating of the peak bin
+        T.Section("Clause 7.3 / Annex D: Load spectrum, a rating per bin");
+        T.Note(string.Format(CultureInfo.InvariantCulture, "The sections above rate bin {0}, the largest torque ({1:0.###} Nm at {2:0.###} rpm), with the design life L = {3:0.###} h; " +
+            "the fatigue life below uses every bin (the safety factors of a bin are not checked against SHmin / SFmin: the life is the criterion).",
+            peak + 1, bins[peak].Torque, bins[peak].Speed, In.LifeHours));
+        for (int i = 0; i < bins.Count; i++)
+        {
+            string k = "[" + (i + 1) + "]";
+            T.R("T " + k, "input", "Pinion torque of the bin", bins[i].Torque, "Nm");
+            T.R("n1 " + k, "input", "Pinion speed of the bin", bins[i].Speed, "rpm");
+            T.R("t " + k, "input", "Time of the bin", bins[i].Hours, "h");
+            T.R("vt " + k, "Eq(19)", "Pitch line velocity", rated[i].Last("vt"), "m/s");
+            T.R("KV " + k, "Eq(21)", "Dynamic factor at the speed of the bin", rated[i].Last("KV"), "");
+            T.R("SH1 " + k, "Eq(12)", "Safety factor for macropitting, pinion, at the load of the bin", rated[i].Last("SH1"), "");
+            T.R("SH2 " + k, "Eq(12)", "Safety factor for macropitting, wheel", rated[i].Last("SH2"), "");
+            T.R("SF1 " + k, "Eq(14)", "Safety factor for bending, pinion", rated[i].Last("SF1"), "");
+            T.R("SF2 " + k, "Eq(14)", "Safety factor for bending, wheel", rated[i].Last("SF2"), "");
+        }
+
+        double u = report.Last("u"), dw1 = report.Last("dw1"), b = report.Last("b"), beta = report.Last("beta");
+        double ZE = report.Last("ZE"), ZI = report.Last("ZI"), ZW = report.Last("ZW"), KH = report.Last("KH");
+        double YJ1 = report.Last("YJ1"), YJ2 = report.Last("YJ2"), YB1 = report.Last("YB1"), YB2 = report.Last("YB2");
+        double YI1 = report.Last("YI1"), YI2 = report.Last("YI2"), Kgamma = report.Last("Kgamma"), Ytheta = report.Last("Ytheta"), YZ = report.Last("YZ");
+        double SH = In.MinSafetyFactorPitting, SF = In.MinSafetyFactorBending;
+        double mn = In.NormalModule;
+
+        double LH1 = MinerLife(T, bins, rated, "H1", "Annex D.1.2: Fatigue life, macropitting of the pinion", warnings, "the pinion's macropitting", 1.0, In.ContactsPerRevPinion,
+            (i, kv) => SH * Ytheta * YZ * ZE * Math.Sqrt(2000.0 * bins[i].Torque / dw1 * kv * Kgamma * KH / (dw1 * b * ZI)), report.Last("sigma_HP1"),
+            "D.4", "D.5", "Z_N");
+        double LH2 = MinerLife(T, bins, rated, "H2", "Annex D.1.2: Fatigue life, macropitting of the wheel", warnings, "the wheel's macropitting", u, In.ContactsPerRevWheel,
+            (i, kv) => SH * Ytheta * YZ / ZW * ZE * Math.Sqrt(2000.0 * bins[i].Torque / dw1 * kv * Kgamma * KH / (dw1 * b * ZI)), report.Last("sigma_HP2"),
+            "D.4", "D.5", "Z_N");
+        double LF1 = MinerLife(T, bins, rated, "F1", "Annex D.1.3: Fatigue life, bending of the pinion", warnings, "the pinion's bending", 1.0, In.ContactsPerRevPinion,
+            (i, kv) => SF * Ytheta * YZ * 2000.0 * bins[i].Torque / dw1 * kv * Kgamma * Math.Cos(beta) / (b * mn) * KH * YB1 / YJ1, YI1 * report.Last("sigma_FP1"),
+            "D.11", "D.12", "Y_N");
+        double LF2 = MinerLife(T, bins, rated, "F2", "Annex D.1.3: Fatigue life, bending of the wheel", warnings, "the wheel's bending", u, In.ContactsPerRevWheel,
+            (i, kv) => SF * Ytheta * YZ * 2000.0 * bins[i].Torque / dw1 * kv * Kgamma * Math.Cos(beta) / (b * mn) * KH * YB2 / YJ2, YI2 * report.Last("sigma_FP2"),
+            "D.11", "D.12", "Y_N");
+
+        T.Section("Summary of the fatigue life (Annex D)");
+        double L = T.R("L min", "", "Fatigue life of the gear set, the smallest of the four", Math.Min(Math.Min(LH1, LH2), Math.Min(LF1, LF2)), "h");
+        string governs = L == LH1 ? "macropitting of the pinion" : L == LH2 ? "macropitting of the wheel" : L == LF1 ? "bending of the pinion" : "bending of the wheel";
+        bool ok = L >= In.LifeHours * (1.0 - 1e-9);
+        T.Note(string.Format(CultureInfo.InvariantCulture, "Lives for SH = {0:0.###}, SF = {1:0.###}: macropitting {2} h (pinion), {3} h (wheel); bending {4} h (pinion), {5} h (wheel).",
+            SH, SF, FormatHours(LH1), FormatHours(LH2), FormatHours(LF1), FormatHours(LF2)));
+        T.Note(string.Format(CultureInfo.InvariantCulture, "Fatigue life L = {0} h, {1} governs; {2} the required life L = {3:0.###} h -> {4}.",
+            FormatHours(L), governs, ok ? ">=" : "<", In.LifeHours, ok ? "OK" : "NOT OK"));
+        if (!ok)
+            warnings.Add(string.Format(CultureInfo.InvariantCulture, "The fatigue life by Miner's rule, {0} h ({1}), is below the required life L = {2:0.###} h.", FormatHours(L), governs, In.LifeHours));
+        return (T, warnings);
+    }
+
+    /// <summary>
+    /// Miner's sum of one member and mode (Annex D.1.2 / D.1.3) logged under the suffix <paramref name="tag"/>: the fatigue
+    /// stress number of each bin, its stress cycle factor, the cycles to failure and the cycles applied, then D.2, D.3,
+    /// D.8 to D.10. <paramref name="ratio"/> divides the pinion speed (u for the wheel). Returns the life in hours.
+    /// </summary>
+    private double MinerLife(CalcTrace T, List<SpectrumBin> bins, CalcTrace[] rated, string tag, string title, List<string> warnings,
+        string who, double ratio, double q, Func<int, double, double> stress, double allowable,
+        string stressEq, string factorEq, string factorName)
+    {
+        T.Section(title);
+        bool pitting = tag[0] == 'H';
+        double damage = 0.0, sumCycles = 0.0, sumCyclesOverSpeed = 0.0;
+        bool beyondCurves = false;
+        for (int i = 0; i < bins.Count; i++)
+        {
+            string k = "[" + (i + 1) + "]";
+            double sigma = T.R("sigma_" + tag + " " + k, "Eq(" + stressEq + ")", "Fatigue " + (pitting ? "contact" : "bending") + " stress number", stress(i, rated[i].Last("KV")), "N/mm2");
+            double factor = T.R(factorName + tag.Substring(1) + " " + k, "Eq(" + factorEq + ")", "Stress cycle factor, sigma / " + (pitting ? "sigma_HP" : "(Y_I sigma_FP)"), sigma / allowable, "");
+            string basis;
+            bool isStatic;
+            double nf = pitting
+                ? CyclesToFailureZN(tag[1] == '1' ? In.MaterialPinion : In.MaterialWheel, factor, In.CycleCurve, out basis, out isStatic)
+                : CyclesToFailureYN(tag[1] == '1' ? In.MaterialPinion : In.MaterialWheel, tag[1] == '1' ? In.HardnessHBPinion : In.HardnessHBWheel, factor, In.CycleCurve, out basis, out isStatic);
+            T.R("Nf_" + tag + " " + k, "Clause 17", "Number of cycles to failure: " + basis, nf, "");
+            if (isStatic)
+                warnings.Add(string.Format(CultureInfo.InvariantCulture, "Bin {0}: the stress number of {1} is in the static region of its stress cycle curve; " +
+                    "its cycles to failure are taken at the start of the curve and the yield check of clause 19 is not made.", i + 1, who));
+            if (nf > 1e10) beyondCurves = true;
+            double speed = bins[i].Speed / ratio;
+            double n = T.R("n_" + tag + " " + k, "Eq(D.2)", "Number of cycles of the bin, 60 w t q", 60.0 * speed * bins[i].Hours * q, "");
+            sumCycles += n;
+            sumCyclesOverSpeed += n / speed;
+            damage += n / nf;
+        }
+        if (beyondCurves)
+            T.Note("Some cycles to failure are beyond 1e10, the end of Figures 17 and 18: the curves are extended (17.2).");
+        double total = T.R("Sum n_" + tag, "Eq(D.2)", "Total number of cycles of the load spectrum", sumCycles, "");
+        T.R("D_" + tag, "Miner", "Damage of one pass of the load spectrum, sum n_i / N_fi", damage, "");
+        // a_i = n_i / sum n (D.3): N = sum n / D (D.8), w_b = sum n / sum(n_i / w_i) (D.9)
+        double nLife = T.R("N_" + tag, "Eq(D.8)", "Resultant fatigue life in cycles, 1 / sum(a_i / N_fi)", total / damage, "");
+        double wb = T.R("wb_" + tag, "Eq(D.9)", "Equivalent baseline speed, 1 / sum(a_i / w_i)", total / sumCyclesOverSpeed, "rpm");
+        return T.R("L_" + tag, "Eq(D.10)", "Fatigue life in hours, N / (60 w_b q)", nLife / (60.0 * wb * q), "h");
+    }
+
+    /// <summary>The inputs of a bin: the transmitted load of the bin checked by clause 7.2.</summary>
+    private AgmaInputs BinInputs(SpectrumBin bin)
+    {
+        AgmaInputs inputs = In.Clone();
+        inputs.Goal = RatingGoal.CheckTransmittedLoad;
+        inputs.LoadInput = LoadSpecification.PinionTorque;
+        inputs.PinionTorque = bin.Torque;
+        inputs.PinionSpeed = bin.Speed;
+        return inputs;
+    }
+
+    /// <summary>The warnings of a bin's rating, without the checks of the safety factors against their minimums.</summary>
+    private static void AddBinWarnings(List<string> warnings, List<string> binWarnings, int? bin)
+    {
+        foreach (string w in binWarnings)
+        {
+            if (w.StartsWith("Macropitting safety factor SH") || w.StartsWith("Bending safety factor SF"))
+                continue;
+            if (warnings.Contains(w) || warnings.Any(x => x.EndsWith(": " + w)))
+                continue;
+            warnings.Add(bin.HasValue ? "Bin " + bin.Value + ": " + w : w);
+        }
+    }
+
+    private static string FormatHours(double hours) =>
+        hours >= 1e7 ? hours.ToString("0.000E+0", CultureInfo.InvariantCulture) : hours.ToString("0.#", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The bins of a load spectrum: "T n t; T n t; ..." (pinion torque in Nm, pinion speed in rpm, time in h; the values
+    /// separated by spaces, tabs or commas, the bins by semicolons or new lines; invariant culture). Throws
+    /// <see cref="ArgumentException"/> with the bin at fault.
+    /// </summary>
+    public static List<SpectrumBin> ParseLoadSpectrum(string text)
+    {
+        var bins = new List<SpectrumBin>();
+        string[] parts = (text ?? "").Split(new[] { ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (string part in parts)
+        {
+            if (part.Trim().Length == 0)
+                continue;
+            string[] values = part.Split(new[] { ' ', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            int k = bins.Count + 1;
+            if (values.Length != 3)
+                throw new ArgumentException(string.Format("Bin {0} of the load spectrum, \"{1}\", needs three values: the pinion torque (Nm), the pinion speed (rpm) and the time (h).", k, part.Trim()));
+            double[] v = new double[3];
+            for (int j = 0; j < 3; j++)
+                if (!double.TryParse(values[j], NumberStyles.Float, CultureInfo.InvariantCulture, out v[j]) || double.IsNaN(v[j]) || double.IsInfinity(v[j]))
+                    throw new ArgumentException(string.Format("Bin {0} of the load spectrum: \"{1}\" is not a number (use a point for the decimals).", k, values[j]));
+            if (!(v[0] > 0.0)) throw new ArgumentException(string.Format("Bin {0} of the load spectrum: the pinion torque must be positive.", k));
+            if (!(v[1] > 0.0)) throw new ArgumentException(string.Format("Bin {0} of the load spectrum: the pinion speed must be positive.", k));
+            if (v[2] < 0.0) throw new ArgumentException(string.Format("Bin {0} of the load spectrum: the time cannot be negative.", k));
+            bins.Add(new SpectrumBin { Torque = v[0], Speed = v[1], Hours = v[2] });
+        }
+        if (bins.Count == 0)
+            throw new ArgumentException("The fatigue life needs a load spectrum: enter at least one bin (pinion torque Nm, pinion speed rpm, time h).");
+        return bins;
+    }
+
+    /// <summary>The text of a load spectrum, as <see cref="ParseLoadSpectrum"/> reads it (round-trip precision).</summary>
+    public static string FormatLoadSpectrum(IEnumerable<SpectrumBin> bins) =>
+        string.Join("; ", bins.Select(bin => string.Format(CultureInfo.InvariantCulture, "{0:R} {1:R} {2:R}", bin.Torque, bin.Speed, bin.Hours)));
 
     private static string PinionProportionEquation(double b) => b <= 25.0 ? "Eq(32)" : b <= 432.0 ? "Eq(33)" : "Eq(34)";
 

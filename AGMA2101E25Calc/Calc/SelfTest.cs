@@ -27,6 +27,9 @@ public static class SelfTest
         var (p4, f4) = RunRatedPowerChecks();
         pass += p4; fail += f4;
         Console.WriteLine();
+        var (p5, f5) = RunAnnexD2Check();
+        pass += p5; fail += f5;
+        Console.WriteLine();
         Console.WriteLine($"=== TOTAL: {pass} passed, {fail} failed ===");
         return fail;
     }
@@ -150,6 +153,84 @@ public static class SelfTest
             bool sameAsCheck = Math.Abs(checkTrace.Last("P_SF") - trace.Last("P_SF")) <= 1e-9 * trace.Last("P_SF");
             bool ok = governingMet && sameAsCheck && !warnings.Any(w => w.Contains("safety factor"));
             Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} {Examples.Names[index]}, SHmin 1.3, SFmin 1.6: P_SF = {trace.Last("P_SF"):0.0000} kW, SH = {sh:0.000000000}, SF = {sf:0.000000000}");
+            if (ok) pass++; else fail++;
+        }
+        return (pass, fail);
+    }
+
+    /// <summary>
+    /// Annex D.2, fatigue life by Miner's rule: every value the annex publishes (K_V per bin, the fatigue stress numbers,
+    /// stress cycle factors and cycles to failure per bin, the cycles, N, w_b and L of each member and mode), then the
+    /// continuity with the safety factor method: one bin at the load for the required safety factors lasts the design
+    /// life. The tolerances widen where a rounded stress cycle factor is raised to the power 1/0.023 or 1/0.0178.
+    /// (Written together with IGDv4.0's IGDAnalysis.Tests/Rating/Agma2101MinerLifeTests.cs, 2026-10-20.)
+    /// </summary>
+    public static (int pass, int fail) RunAnnexD2Check()
+    {
+        Console.WriteLine("=== Annex D.2: fatigue life by Miner's rule ===");
+        int pass = 0, fail = 0;
+        var (trace, warnings) = new AgmaCalculator(Examples.AnnexD2()).Calculate();
+        void Check(string symbol, double expected, double relTol)
+        {
+            double actual = trace.Last(symbol);
+            bool ok = Math.Abs(actual - expected) <= Math.Abs(expected) * relTol;
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} {symbol,-14} {actual,16:G9}  expected {expected:G9}");
+            if (ok) pass++; else fail++;
+        }
+        double[] kv = { 1.108759, 1.102643, 1.097519, 1.093105, 1.085901, 1.077762 };
+        double[] sh = { 871.13754887, 928.71314045, 982.75760442, 1033.83224837, 1128.7684815, 1257.26318171 };
+        double[] zn = { 0.562024, 0.59917, 0.634037, 0.666989, 0.728238, 0.811138 };
+        double[] nfh = { 7.596093e17, 4.700059e16, 4.018646e15, 4.439981e14, 9.738288e12, 8.969518e10 };
+        double[] nh = { 1.8312e8, 3.204e8, 5.6976e8, 1.9224e8, 1.068e8, 4.272e7 };
+        double[] sf1 = { 147.541371, 167.688596, 187.773013, 207.797586, 247.71374, 307.321358 };
+        double[] yn1 = { 0.32787, 0.372641, 0.417273, 0.461772, 0.550475, 0.682936 };
+        double[] nf1 = { 4.310141e34, 3.247255e31, 5.641881e28, 1.901529e26, 9.818025e21, 5.38536e16 };
+        double[] sf2 = { 143.01035, 162.538851, 182.006471, 201.416087, 240.106409, 297.883466 };
+        double[] yn2 = { 0.317801, 0.361197, 0.404459, 0.447591, 0.53357, 0.661963 };
+        double[] nf2 = { 2.486145e35, 1.873078e32, 3.254039e29, 1.096802e27, 5.662998e22, 3.106293e17 };
+        for (int i = 0; i < 6; i++)
+        {
+            string k = " [" + (i + 1) + "]";
+            Check("KV" + k, kv[i], 1e-6);
+            Check("sigma_H1" + k, sh[i], 1e-6);
+            Check("Z_N1" + k, zn[i], 1e-5);
+            Check("Nf_H1" + k, nfh[i], 2e-4);
+            Check("n_H1" + k, nh[i], 1e-9);
+            Check("sigma_F1" + k, sf1[i], 1e-6);
+            Check("Y_N1" + k, yn1[i], 2e-5);
+            Check("Nf_F1" + k, nf1[i], 2e-3);
+            Check("sigma_F2" + k, sf2[i], 1e-6);
+            Check("Y_N2" + k, yn2[i], 2e-5);
+            Check("Nf_F2" + k, nf2[i], 2e-3);
+        }
+        Check("Sum n_H1", 1.41504e9, 1e-9);
+        Check("N_H1", 2.900687e12, 2e-4);
+        Check("wb_H1", 2358.397665, 1e-5);
+        Check("L_H1", 2.0499e7, 1e-4);
+        Check("Sum n_H2", 3.369142e8, 1e-6);
+        Check("N_H2", 2.900687e12, 2e-4);
+        Check("wb_H2", 561.523254, 1e-5);
+        Check("L_H2", 8.609578e7, 2e-4);
+        Check("N_F1", 1.783798e18, 2e-3);
+        Check("L_F1", 1.2606e13, 2e-3);
+        Check("N_F2", 1.0289e19, 2e-3);
+        Check("L_F2", 3.053895e14, 2e-3);
+        if (warnings.Count != 0) { Console.WriteLine($"FAIL D.2 has {warnings.Count} warning(s): {string.Join(" | ", warnings)}"); fail++; }
+
+        // Continuity: one bin at the torque for the required safety factors, for the design life, lasts the design life
+        foreach (var (shMin, sfMin) in new[] { (1.0, 1.0), (1.3, 1.6) })
+        {
+            AgmaInputs inputs = Examples.AnnexB();
+            inputs.Goal = RatingGoal.RatedLoadForRequiredSafetyFactors;
+            inputs.LoadInput = LoadSpecification.PinionTorque;
+            inputs.MinSafetyFactorPitting = shMin;
+            inputs.MinSafetyFactorBending = sfMin;
+            var (rated, _) = new AgmaCalculator(inputs).Calculate();
+            inputs.Goal = RatingGoal.FatigueLifeForLoadSpectrum;
+            inputs.LoadSpectrum = AgmaCalculator.FormatLoadSpectrum(new[] { new SpectrumBin { Torque = rated.Last("T_SF"), Speed = inputs.PinionSpeed, Hours = inputs.LifeHours } });
+            var (life, _) = new AgmaCalculator(inputs).Calculate();
+            bool ok = Math.Abs(life.Last("L min") - inputs.LifeHours) <= inputs.LifeHours * 1e-9;
+            Console.WriteLine($"{(ok ? "PASS" : "FAIL"),-4} one bin at T_SF (SHmin {shMin}, SFmin {sfMin}) lasts L = {inputs.LifeHours} h: {life.Last("L min"):G12} h");
             if (ok) pass++; else fail++;
         }
         return (pass, fail);

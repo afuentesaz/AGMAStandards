@@ -471,6 +471,80 @@ namespace AGMA2101E25Calc.Calc
             name = string.Format("{0:0} HBW (log-interpolated between {1:0} and {2:0} HBW)", hb, hbs[k], hbs[k + 1]);
         }
 
+        // ================================================================ Annex D: cycles to failure (inverse of clause 17)
+        // The stress cycle curves above solved for the number of cycles, segment by segment with the same coefficients, so
+        // that Eq D.6 / D.7 (Z_N) and D.13 / D.14 (Y_N) are the cases of the curves of Annex D.2. A value above the plateau
+        // (the static region: fewer than 1e4 cycles for Z_N, 1e3 for Y_N) gives the start of the curve, the conservative end,
+        // and is flagged through isStatic. (Written together with IGDv4.0's copy, 2026-10-20.)
+
+        /// <summary>Number of cycles to failure at the stress cycle factor <paramref name="zn"/> for macropitting (Table 12 inverted).</summary>
+        public static double CyclesToFailureZN(GearMaterial m, double zn, StressCycleCurve curve, out string basis, out bool isStatic)
+        {
+            if (!IsSteel(m))
+                throw new ArgumentException("Miner's rule needs the stress cycle curves of steel; Z_N = 1.0 for iron and bronze has none (17.2).");
+            if (!(zn > 0.0))
+                throw new ArgumentException("The stress cycle factor must be positive.");
+            isStatic = false;
+            bool critical = curve == StressCycleCurve.CriticalService;
+            double c2, e2, nKnee, plateau;
+            if (IsNitrided(m)) { c2 = 1.249; e2 = -0.0138; nKnee = 1e7; plateau = 1.0999; }
+            else { c2 = 2.466; e2 = -0.056; nKnee = critical ? double.PositiveInfinity : 1e7; plateau = 1.4723; }
+
+            double zStart = c2 * Math.Pow(1e4, e2);
+            if (zn > zStart)
+            {
+                isStatic = true;
+                basis = string.Format("static region (Z_N above {0:0.####}, the curve at 1e4 cycles; plateau {1:0.####}): N_f = 1e4", zStart, plateau);
+                return 1e4;
+            }
+            double zKnee = double.IsInfinity(nKnee) ? 0.0 : c2 * Math.Pow(nKnee, e2);
+            if (zn >= zKnee)
+            {
+                basis = string.Format("Table 12 inverted: N_f = ({0:0.####} / Z_N)^(1/{1:0.####})", c2, -e2);
+                return Math.Pow(c2 / zn, 1.0 / -e2);
+            }
+            double c3 = critical ? 2.466 : 1.4488, e3 = critical ? -0.056 : -0.023;
+            basis = string.Format("Table 12 inverted, {0}: N_f = ({1:0.####} / Z_N)^(1/{2:0.####})", critical ? "critical service" : "general application", c3, -e3);
+            return Math.Pow(c3 / zn, 1.0 / -e3);
+        }
+
+        /// <summary>Number of cycles to failure at the stress cycle factor <paramref name="yn"/> for bending (Table 13 inverted).</summary>
+        public static double CyclesToFailureYN(GearMaterial m, double hb, double yn, StressCycleCurve curve, out string basis, out bool isStatic)
+        {
+            if (!IsSteel(m))
+                throw new ArgumentException("Miner's rule needs the stress cycle curves of steel; Y_N = 1.0 for iron and bronze has none (17.2).");
+            if (!(yn > 0.0))
+                throw new ArgumentException("The stress cycle factor must be positive.");
+            isStatic = false;
+            bool critical = curve == StressCycleCurve.CriticalService;
+            double c3 = critical ? 1.6831 : 1.3558, e3 = critical ? -0.0323 : -0.0178;
+            double yKnee = c3 * Math.Pow(3e6, e3);
+            if (yn < yKnee)
+            {
+                basis = string.Format("Table 13 inverted, {0}: N_f = ({1:0.####} / Y_N)^(1/{2:0.####})", critical ? "critical service" : "general application", c3, -e3);
+                return Math.Pow(c3 / yn, 1.0 / -e3);
+            }
+
+            double coef, exponent, plateau;
+            string name;
+            if (IsNitrided(m)) { coef = 3.517; exponent = -0.0817; plateau = 2.0002; name = "nitrided"; }
+            else if (m == GearMaterial.SteelCarburizedAndHardened || IsFlameOrInduction(m)) { coef = 6.1514; exponent = -0.1192; plateau = 2.7001; name = "case carb"; }
+            else
+                ThroughHardenedYNCurve(hb, out coef, out exponent, out plateau, out name);
+
+            double yStart = coef * Math.Pow(1e3, exponent);
+            if (yn > yStart)
+            {
+                isStatic = true;
+                basis = string.Format("static region (Y_N above {0:0.####}, the {1} curve at 1e3 cycles): N_f = 1e3", yStart, name);
+                return 1e3;
+            }
+            // The two segments meet at 3e6 cycles only to the 4 decimals of the standard: the knee value of the upper curve
+            // decides the segment, and the lower one is kept within its range.
+            basis = string.Format("Table 13 inverted, {0}: N_f = ({1:0.####} / Y_N)^(1/{2:0.######})", name, coef, -exponent);
+            return Math.Min(Math.Pow(coef / yn, 1.0 / -exponent), 3e6);
+        }
+
         // ================================================================ clause 18: reliability factor
 
         /// <summary>Reliability factor Y_Z, Table 14.</summary>
